@@ -8,7 +8,7 @@ Three voice apps that run entirely on your own NVIDIA DGX Spark, with no cloud A
 
 It runs on one DGX Spark, or splits across two.
 
-[![Watch the Spark Talk demo (1:32): a live, unedited episode researched, written and voiced on two DGX Sparks](docs/media/demo-poster.jpg)](https://github.com/joeynyc/spark-voice/releases/download/demo/spark-talk-demo.mp4)
+[![Watch the Spark Talk demo (1:32): a live, unedited episode researched, written and voiced on two DGX Sparks](docs/media/demo-poster.jpg)](https://github.com/joeynyc/spark-voice/releases/download/v0.1.0/spark-talk-demo.mp4)
 
 *One unedited run (1:32): type a topic, and the hosts search the web, write the episode and go on air in under 6 seconds. Click to watch (MP4, 20 MB).*
 
