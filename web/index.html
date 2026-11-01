@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04050a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spark Voice">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<title>Spark Voice</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #04050a; --ink: #f5f5f7; --dim: rgba(245,245,247,.62); --faint: rgba(245,245,247,.34);
+    --c1: #5ad8ff; --c2: #7a6bff; --c3: #ff5fc8; --c4: #ffb36b;
+    --ok: #5ee08a; --warn: #ffb36b;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+    --glass: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.025));
+    --rim: inset 0 0 0 .5px rgba(255,255,255,.22), inset 1.5px 1.5px 1px -1px rgba(255,255,255,.7),
+           inset -1px -1px 1px -1px rgba(255,255,255,.3);
+    --ease: cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
+         -webkit-font-smoothing: antialiased; overflow: hidden; }
+  button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  :focus-visible { outline: 2px solid rgba(255,255,255,.6); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---- Backdrop: quiet light, film grain ---- */
+  .bg { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .bg i { position: absolute; border-radius: 50%; filter: blur(50px); }
+  .bg .b1 { width: 1100px; height: 700px; left: 50%; top: 46%; transform: translate(-50%, -50%);
+            background: radial-gradient(closest-side, rgba(92,84,255,.22), transparent); }
+  .bg .b2 { width: 700px; height: 520px; left: 8%; top: 60%; background: radial-gradient(closest-side, rgba(40,190,255,.12), transparent); }
+  .bg .b3 { width: 700px; height: 520px; right: 6%; top: 6%; background: radial-gradient(closest-side, rgba(255,90,200,.10), transparent); }
+  .bg svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .07; mix-blend-mode: overlay; }
+
+  /* ---- Screen-edge glow while listening / speaking ---- */
+  #edge { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .7s ease; z-index: 3; }
+  #edge i, #edge b { position: absolute; inset: 0; }
+  #edge .ring { overflow: hidden; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+                -webkit-mask-composite: xor; mask-composite: exclude; }
+  #edge .line { padding: 3px; opacity: .9; }
+  /* the colours turn by rotating an oversized gradient (GPU), never by repainting it */
+  #edge #edge-spin { position: absolute; left: 50%; top: 50%; right: auto; bottom: auto; width: 150vmax; height: 150vmax; will-change: transform;
+               background: conic-gradient(var(--c1), var(--c2), var(--c3), var(--c4), var(--c1)); }
+  /* blur on the wrapper: a filter on the masked element itself would be clipped back to a hard edge */
+  #edge .bloom { filter: blur(26px); opacity: .3; will-change: opacity; }
+  #edge .bloom b { padding: 22px; background: conic-gradient(from 200deg, var(--c1), var(--c2), var(--c3), var(--c4), var(--c1)); }
+  body[data-state=listening] #edge, body[data-state=speaking] #edge { opacity: 1; }
+  body[data-state=hearing] #edge, body[data-state=thinking] #edge { opacity: .35; }
+
+  /* ---- Layout (height follows the visual viewport so the iOS keyboard never covers the dock) ---- */
+  .app { position: relative; z-index: 2; height: 100%; height: var(--app-h, 100dvh); display: flex; flex-direction: column;
+         padding: max(30px, env(safe-area-inset-top)) max(clamp(16px, 5vw, 72px), env(safe-area-inset-right))
+                  max(30px, env(safe-area-inset-bottom)) max(clamp(16px, 5vw, 72px), env(safe-area-inset-left)); }
+  header { display: flex; align-items: center; gap: 16px; }
+  .brand { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .seg { display: inline-flex; padding: 4px; gap: 2px; border-radius: 999px; }
+  .seg a { border-radius: 999px; padding: 8px 15px; font-size: 13.5px; font-weight: 500; color: var(--dim); text-decoration: none;
+           white-space: nowrap; transition: color .2s; }
+  .seg a:hover { color: var(--ink); }
+  .seg a.on { color: #0a0a12; background: linear-gradient(180deg, #fff, #e4e4ee); box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  .right { margin-left: auto; display: flex; align-items: center; gap: 14px; min-width: 0; }
+  #health { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--dim); min-width: 0; }
+  #health-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #health .dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--dim); }
+  #health.ok .dot { background: var(--ok); box-shadow: 0 0 10px rgba(94,224,138,.8); }
+  #health.bad .dot { background: var(--warn); box-shadow: 0 0 10px rgba(255,179,107,.7); }
+  #health.bad #health-text { color: var(--warn); }
+
+  .glass { background: var(--glass); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%);
+           box-shadow: var(--rim), 0 1px 1px rgba(0,0,0,.4), 0 20px 50px rgba(0,0,0,.55); }
+  .icon { width: 44px; height: 44px; flex: none; border-radius: 50%; border: 0; background: transparent;
+          color: rgba(245,245,247,.82); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .icon.glass { background: var(--glass); }
+  .icon:hover { color: #fff; }
+
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+         gap: clamp(20px, 5vh, 48px); text-align: center; padding: 16px 0; }
+
+  /* ---- The sphere (tap it to stop) ---- */
+  #sphere { position: relative; width: clamp(150px, 26vh, 240px); aspect-ratio: 1; flex: none; border: 0; padding: 0;
+            background: none; border-radius: 50%; cursor: default;
+            transition: filter .8s ease, width .6s var(--ease); will-change: transform; }
+  body:is([data-state=thinking], [data-state=speaking], [data-state=hearing]) #sphere { cursor: pointer; }
+  body[data-state=idle] #sphere { filter: saturate(.65) brightness(.82); }
+  #sphere > div, #sphere .core > div { position: absolute; border-radius: 50%; pointer-events: none; }
+  .halo { inset: -18%; background: conic-gradient(var(--c1), var(--c2), var(--c3), var(--c4), var(--c1)); will-change: transform;
+          filter: blur(60px); opacity: .35; transition: opacity .8s; }
+  body[data-state=idle] .halo { opacity: .16; }
+  .core { inset: 0; overflow: hidden; background: #0b0b18; }
+  .swirl { inset: -20%; background: conic-gradient(at 45% 55%, var(--c1), var(--c2), var(--c3), var(--c4), var(--c1));
+           filter: blur(28px); will-change: transform; }
+  .swirl2 { inset: -20%; background: conic-gradient(at 62% 38%, transparent, var(--c1), transparent 40%, var(--c3), transparent 80%);
+            filter: blur(30px); mix-blend-mode: screen; opacity: .55; will-change: transform; }
+  .hi { width: 70%; height: 70%; left: 30%; top: 4%; background: radial-gradient(closest-side, rgba(255,255,255,.55), transparent);
+        filter: blur(14px); mix-blend-mode: soft-light; }
+  .lo { width: 80%; height: 60%; left: -10%; bottom: -12%; background: radial-gradient(closest-side, rgba(10,10,30,.75), transparent); filter: blur(10px); }
+  .lens { inset: 0; background: radial-gradient(120% 90% at 30% 18%, rgba(255,255,255,.38), transparent 38%),
+                                radial-gradient(80% 60% at 70% 92%, rgba(255,255,255,.14), transparent 55%);
+          box-shadow: inset 0 0 0 .5px rgba(255,255,255,.45), inset 2px 3px 2px -2px rgba(255,255,255,.9),
+                      inset -2px -3px 3px -2px rgba(255,255,255,.35), 0 30px 80px rgba(0,0,0,.6); }
+
+  /* ---- Caption ---- */
+  .caption { width: 100%; max-width: 1000px; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  #eyebrow { max-width: 100%; min-height: 1.3em; font-size: 12px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase;
+             color: rgba(245,245,247,.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #cap { margin: 0; font-size: clamp(28px, 3.5vw, 50px); line-height: 1.16; font-weight: 300; letter-spacing: -.025em;
+         min-height: 2.32em; text-wrap: balance; }
+  #cap.long { font-size: clamp(22px, 2.6vw, 36px); }
+  #cap .faint, #cap-next { color: var(--faint); }
+  #cap.swap { animation: capIn .5s var(--ease); }
+  @keyframes capIn { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
+  #chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  #chips[hidden] { display: none; }
+  .chip { min-height: 44px; border: 0; border-radius: 999px; padding: 11px 18px; font-size: 14px; color: rgba(245,245,247,.86); cursor: pointer; }
+  .chip:hover { color: #fff; }
+
+  /* ---- Dock ---- */
+  footer { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .dock { position: relative; display: flex; align-items: center; gap: 6px; padding: 7px; border-radius: 999px; max-width: 100%;
+          user-select: none; -webkit-user-select: none; }
+  #talk { height: 48px; padding: 0 26px; border-radius: 999px; border: 0; cursor: pointer; display: flex; align-items: center;
+          justify-content: center; gap: 10px; color: #0a0a12; font-weight: 600; font-size: 15px; letter-spacing: -.01em;
+          white-space: nowrap; background: linear-gradient(180deg, #fff, #e4e4ee);
+          box-shadow: inset 0 -1px 0 rgba(0,0,0,.12), 0 6px 18px rgba(0,0,0,.35);
+          -webkit-touch-callout: none; touch-action: none; transition: transform .15s ease, background .3s ease; }
+  #talk.pressed, body[data-state=listening] #talk { transform: scale(.96); }
+  body[data-state=listening] #talk { background: linear-gradient(180deg, #fff, #efe8ff); }
+  #stop { display: none; }
+  body:is([data-state=hearing], [data-state=thinking], [data-state=speaking]) #stop { display: flex; }
+  body:is([data-state=hearing], [data-state=thinking], [data-state=speaking]) #kbd { display: none; }
+  #type { display: none; flex: 1; min-width: 0; align-items: center; gap: 6px; }
+  .dock.typing #type { display: flex; }
+  .dock.typing #talk { display: none; }
+  /* 16px stops iOS zooming the page when the field takes focus */
+  #text { width: min(420px, 58vw); min-width: 0; height: 48px; border: 0; border-radius: 999px; padding: 0 18px;
+          background: rgba(0,0,0,.28); color: var(--ink); font: 400 16px var(--sans); outline: none;
+          box-shadow: inset 0 0 0 .5px rgba(255,255,255,.18); }
+  #text:focus-visible { box-shadow: inset 0 0 0 1px rgba(255,255,255,.5); }
+  #send { background: linear-gradient(180deg, #fff, #e4e4ee); color: #0a0a12; }
+  #send:disabled { opacity: .35; cursor: default; }
+  #voice-btn { height: 48px; padding: 0 14px 0 16px; border: 0; border-radius: 999px; background: transparent; flex: none;
+               color: rgba(245,245,247,.82); font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  #voice-btn:hover { color: #fff; }
+  #voice-menu { position: absolute; bottom: calc(100% + 12px); right: 0; min-width: 210px; padding: 6px; border-radius: 22px;
+                display: none; flex-direction: column; background: linear-gradient(180deg, rgba(28,28,42,.82), rgba(16,16,26,.82)); }
+  #voice-menu.open { display: flex; }
+  #voice-menu button { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; padding: 11px 14px;
+                       border: 0; border-radius: 16px; background: transparent; cursor: pointer; font-size: 15px; text-align: left; }
+  #voice-menu button:hover, #voice-menu button[aria-checked=true] { background: rgba(255,255,255,.1); }
+  #voice-menu small { color: var(--dim); font-size: 12px; }
+  #stats-line { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 0; font-size: 12px; color: rgba(245,245,247,.5);
+                letter-spacing: .02em; font-variant-numeric: tabular-nums; text-align: center; }
+  #stats-line span { white-space: nowrap; }
+  #stats-line .sep { margin: 0 10px; opacity: .5; }
+
+  /* ---- Conversation & timings sheet ---- */
+  #scrim { position: fixed; inset: 0; z-index: 4; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+  #scrim.open { opacity: 1; pointer-events: auto; }
+  #sheet { position: fixed; z-index: 5; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right));
+           bottom: max(16px, env(safe-area-inset-bottom)); width: min(420px, calc(100vw - 32px));
+           border-radius: 28px; padding: 18px; display: flex; flex-direction: column; gap: 14px;
+           background: linear-gradient(180deg, rgba(22,22,36,.8), rgba(12,12,20,.8));
+           transform: translateX(calc(100% + 32px)); visibility: hidden;
+           transition: transform .45s var(--ease), visibility 0s linear .45s; }
+  #sheet.open { transform: none; visibility: visible; transition: transform .45s var(--ease); }
+  .sheet-head { display: flex; align-items: center; gap: 8px; }
+  .sheet-head h2 { margin: 0 auto 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .pill { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 0; cursor: pointer; font-size: 13px;
+          background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.18); }
+  .pill:hover { background: rgba(255,255,255,.14); }
+  #timings-box { border-radius: 18px; background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12); }
+  #timings-box summary { list-style: none; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;
+                         cursor: pointer; font-size: 13px; color: var(--dim); }
+  #timings-box summary::-webkit-details-marker { display: none; }
+  #timings-box summary::after { content: ""; margin-left: 8px; width: 7px; height: 7px; border: solid currentColor;
+                                border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
+  #timings-box[open] summary::after { transform: rotate(-135deg) translateY(-2px); }
+  #t-sum { margin-left: auto; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .timings { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 0; padding: 0 16px 14px; font-size: 13px; }
+  .timings dt { color: var(--dim); }
+  .timings dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .timings .v2v { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+                  padding-bottom: 10px; margin-bottom: 4px; border-bottom: .5px solid rgba(255,255,255,.12); }
+  .timings .v2v span { color: var(--dim); }
+  .timings .v2v strong { font-size: 30px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  #log { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+         display: flex; flex-direction: column; gap: 10px; padding: 2px; }
+  .empty-log { margin: auto; color: var(--dim); font-size: 13px; }
+  .msg { max-width: 88%; padding: 9px 13px; border-radius: 18px; white-space: pre-wrap; font-size: 14px; line-height: 1.45; }
+  .msg.user { align-self: flex-end; background: rgba(122,107,255,.3); border-bottom-right-radius: 6px; }
+  .msg.bot { align-self: flex-start; background: rgba(255,255,255,.07); border-bottom-left-radius: 6px; }
+  .msg.err { align-self: center; color: var(--warn); font-size: 12px; }
+  .msg .meta { display: block; font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .msg.bot mark { background: rgba(255,179,107,.25); color: var(--ink); border-radius: 4px; box-shadow: 0 0 0 2px rgba(255,179,107,.25); }
+
+  /* ---- Phones ---- */
+  @media (max-width: 640px) {
+    header .brand { display: none; }
+    .seg a { padding: 8px 13px; }
+    .app { padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+    #health.ok #health-text { display: none; }
+    #sphere { width: clamp(110px, 24vh, 200px); }
+    body:not([data-state=idle]) #sphere { width: clamp(84px, 15vh, 160px); }
+    .caption { gap: 14px; }
+    #eyebrow { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+               line-height: 1.5; letter-spacing: .16em; }
+    #cap { font-size: 27px; min-height: 0; }
+    #cap.long { font-size: 21px; }
+    #chips { flex-direction: column; align-items: stretch; width: 100%; max-width: 360px; }
+    .dock { width: 100%; }
+    #talk { flex: 1; padding: 0 16px; }
+    #text { width: 100%; }
+    .dock.typing #voice-btn { display: none; }   /* the field gets the room */
+    #sheet { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
+             top: max(12px, env(safe-area-inset-top)); bottom: max(8px, env(safe-area-inset-bottom));
+             border-radius: 26px; transform: translateY(calc(100% + 40px)); }
+    .msg { font-size: 15px; }
+  }
+  /* keyboard open: give the room to the text */
+  body.kb #sphere { width: 64px; }
+  body.kb #chips, body.kb #stats-line { display: none; }
+  /* phones in landscape: side by side */
+  @media (max-height: 520px) and (orientation: landscape) {
+    .app { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+    main { flex-direction: row; gap: 32px; padding: 8px 0; }
+    #sphere, body:not([data-state=idle]) #sphere { width: clamp(90px, 34vh, 160px); }
+    .caption { align-items: flex-start; text-align: left; max-width: 640px; }
+    #cap { font-size: 24px; min-height: 0; } #cap.long { font-size: 19px; }
+    #chips { flex-direction: row; justify-content: flex-start; max-width: none; }
+    #stats-line { display: none; }
+  }
+</style>
+</head>
+<body data-state="idle">
+<div class="bg" aria-hidden="true">
+  <i class="b1"></i><i class="b2"></i><i class="b3"></i>
+  <svg><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#grain)"/></svg>
+</div>
+<div id="edge" aria-hidden="true"><i class="ring line"><b id="edge-spin"></b></i><i class="bloom" id="edge-bloom"><b class="ring"></b></i></div>
+
+<div class="app">
+  <header>
+    <div class="brand">Spark Voice</div>
+    <nav class="seg glass" aria-label="Demos"><a class="on" href="/" aria-current="page">Assistant</a><a href="/studio">Studio</a><a href="/podcast">Podcast</a></nav>
+    <div class="right">
+      <div id="health" role="status"><span class="dot"></span><span id="health-text">Connecting…</span></div>
+      <button class="icon glass" id="open-sheet" aria-label="Conversation and timings" aria-expanded="false" aria-controls="sheet">
+        <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <button id="sphere" type="button" tabindex="-1" aria-hidden="true">
+      <div class="halo"></div>
+      <div class="core"><div class="swirl"></div><div class="swirl2"></div><div class="hi"></div><div class="lo"></div></div>
+      <div class="lens"></div>
+    </button>
+    <div class="caption">
+      <div id="eyebrow"></div>
+      <p id="cap" aria-live="polite"><span id="cap-now"></span><span id="cap-next"></span></p>
+      <div id="chips"></div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="dock glass" id="dock">
+      <button class="icon" id="kbd" type="button" aria-label="Type a question" aria-pressed="false">
+        <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8"/></svg>
+      </button>
+      <button class="icon" id="stop" type="button" aria-label="Stop">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>
+      </button>
+      <form id="type">
+        <label for="text" class="sr">Type a question</label>
+        <input id="text" placeholder="Ask anything" autocomplete="off" autocapitalize="sentences" enterkeyhint="send">
+        <button class="icon" id="send" type="submit" aria-label="Send" disabled>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>
+        </button>
+      </form>
+      <button id="talk" type="button">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <span id="talk-label">Hold to talk</span>
+      </button>
+      <button id="voice-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="voice-menu"><span id="voice-name">James</span>
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+      </button>
+      <div id="voice-menu" class="glass" role="menu" aria-label="Voice"></div>
+    </div>
+    <div id="stats-line"><span>Nothing leaves this room</span></div>
+  </footer>
+</div>
+
+<div id="scrim"></div>
+<aside id="sheet" class="glass" aria-label="Conversation and timings">
+  <div class="sheet-head">
+    <h2>Conversation</h2>
+    <button class="pill" id="reset" type="button">New conversation</button>
+    <button class="icon" id="close-sheet" type="button" aria-label="Close">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <details id="timings-box" open>
+    <summary>Timings <span id="t-sum"></span></summary>
+    <dl class="timings">
+      <div class="v2v"><span>Voice to voice <small id="t-best"></small></span><strong id="t-v2v">–</strong></div>
+      <dt>Heard (<span id="m-listen">speech to text</span>)</dt><dd id="t-asr">–</dd>
+      <dt>First token (<span id="m-write">chat model</span>)</dt><dd id="t-ttft">–</dd>
+      <dt>First sound (<span id="m-voice">speech</span>)</dt><dd id="t-first">–</dd>
+      <dt>Full reply written</dt><dd id="t-llm">–</dd>
+      <dt>Sentences voiced</dt><dd id="t-sent">–</dd>
+      <dt>Voice speed</dt><dd id="t-rtf">–</dd>
+      <dt>Audio spoken</dt><dd id="t-audio">–</dd>
+    </dl>
+  </details>
+  <div id="log"></div>
+</aside>
+
+<script>
+const ASR_URL = "/speech";   // speech to text goes through this app, never anywhere else
+const TOUCH = matchMedia("(pointer: coarse)").matches;
+const $ = (id) => document.getElementById(id);
+const log = $("log"), talk = $("talk"), cap = $("cap"), dock = $("dock");
+let VOICES = { US_James: ["James", "American"], US_Emma: ["Emma", "American"],      // replaced by /api/config
+               UK_George: ["George", "British"], UK_Charlotte: ["Charlotte", "British"] };
+let BADGE = "On-device";
+const EXAMPLES = ["What is a DGX Spark, in one breath?",
+                  "Teach me how speech recognition works",
+                  "Tell me a surprising fact about octopuses"];
+const store = {                                   // per-viewer convenience only
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let voice = VOICES[store.get("voice")] ? store.get("voice") : "US_James";
+const secs = (ms) => `${(ms / 1000).toFixed(1)} s`;
+
+// ---- WebSocket to the Spark gateway --------------------------------------
+let ws, turn = 0, botEl = null, pendingMeta = null, stats = {}, said = [], cur = -1;
+function connect() {
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/talk`);
+  ws.binaryType = "arraybuffer";
+  ws.onmessage = onMessage;
+  ws.onopen = health;
+  ws.onclose = () => { health(); setTimeout(connect, 1000); };
+}
+connect();
+const send = (obj) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); };
+
+// ---- State: drives the sphere, the edge glow, the dock and the caption ----
+const SPEED = { idle: 6, listening: 28, hearing: 80, thinking: 80, speaking: 36 };   // swirl, deg/s
+let uiState = "idle", turnDone = true, decoding = 0, micAn = null, outAn = null, level = 0;
+function setState(s) {
+  uiState = s; document.body.dataset.state = s;
+  talkLabel(); keepAwake(s !== "idle");
+}
+function settle() {                              // after audio or the turn ends
+  if (sources.length || decoding) return;
+  setState(turnDone ? "idle" : "thinking");
+}
+function talkLabel() {
+  const verb = TOUCH ? "Tap" : "Hold";
+  $("talk-label").textContent =
+    uiState === "listening" ? (toggleMode ? "Tap to send" : "Release to send")
+    : uiState === "speaking" ? `${verb} to interrupt`
+    : `${verb} to talk`;
+}
+
+// Long answers: keep the screen on so the phone doesn't lock mid-sentence (audio stops when it does).
+let wake = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wake && navigator.wakeLock && document.visibilityState === "visible") {
+      wake = await navigator.wakeLock.request("screen");
+      wake.addEventListener("release", () => { wake = null; });
+    } else if (!on && wake) { await wake.release(); wake = null; }
+  } catch {}
+}
+
+const sphere = $("sphere"), tbuf = new Float32Array(1024);
+const halo = sphere.querySelector(".halo"), swirl = sphere.querySelector(".swirl"), swirl2 = sphere.querySelector(".swirl2");
+const edgeSpin = $("edge-spin"), edgeBloom = $("edge-bloom");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function rms(an) {
+  if (!an) return 0;
+  an.getFloatTimeDomainData(tbuf);
+  let s = 0; for (const v of tbuf) s += v * v;
+  return Math.sqrt(s / tbuf.length);
+}
+let spin = 0, lastT = performance.now();
+function frame(t) {
+  const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
+  spin = (spin + SPEED[uiState] * (reduced ? 0.2 : 1) * dt) % 360;
+  const raw = uiState === "listening" ? rms(micAn) * 8 : uiState === "speaking" ? rms(outAn) * 5 : 0;
+  level += (Math.min(1, raw) - level) * 0.2;
+  const breathe = uiState === "idle" && !reduced ? Math.sin(t / 1400) * 0.015 : 0;
+  // Transforms and opacity only: the GPU moves cached layers, nothing is repainted (phones can't keep up otherwise).
+  sphere.style.transform = `scale(${1 + breathe + level * 0.14})`;
+  halo.style.transform = swirl.style.transform = `rotate(${spin}deg)`;
+  swirl2.style.transform = `rotate(${-1.6 * spin}deg)`;
+  edgeSpin.style.transform = `translate(-50%, -50%) rotate(${spin * 1.5}deg)`;
+  edgeBloom.style.opacity = (0.3 + level * 0.55).toFixed(3);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---- Caption: the sentence being spoken, large ---------------------------
+function clip(text, n) {
+  if (text.length <= n) return text;
+  const cut = text.lastIndexOf(" ", n);
+  return text.slice(0, cut > 0 ? cut : n) + "…";
+}
+function setCaption(now, next = "", { eyebrow, faint = false, animate = false } = {}) {
+  if (eyebrow != null) $("eyebrow").textContent = eyebrow;
+  next = next ? " " + clip(next, 90) : "";
+  $("cap-now").textContent = now; $("cap-now").className = faint ? "faint" : "";
+  $("cap-next").textContent = next;
+  cap.classList.toggle("long", (now + next).length > (innerWidth < 640 ? 110 : 170));
+  if (animate) { cap.classList.remove("swap"); void cap.offsetWidth; cap.classList.add("swap"); }
+}
+function welcome() {
+  setCaption("Ask me anything.", "", { eyebrow: `Fully local · ${TOUCH ? "tap" : "hold Space"} to talk`, animate: true });
+  $("chips").hidden = false;
+}
+for (const t of EXAMPLES) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip glass"; b.textContent = t;
+  b.onclick = () => { stopAudio(); audioCtx().resume(); ask(t, null); };
+  $("chips").append(b);
+}
+welcome();
+
+// ---- Conversation (in the sheet), with the spoken sentence highlighted ----
+function emptyLog() { log.innerHTML = '<div class="empty-log">Your conversation shows up here.</div>'; }
+emptyLog();
+const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+function add(cls, text) {
+  log.querySelector(".empty-log")?.remove();
+  const el = document.createElement("div");
+  el.className = `msg ${cls}`; el.textContent = text;
+  log.appendChild(el); log.scrollTop = log.scrollHeight;
+  return el;
+}
+function meta(el, text) {
+  const m = document.createElement("span"); m.className = "meta"; m.textContent = text; el.appendChild(m);
+}
+function renderBot(el) {
+  const [s, e] = el._hl || [0, 0];
+  const mark = document.createElement("mark");
+  mark.textContent = el._raw.slice(s, e);
+  el.replaceChildren(el._raw.slice(0, s), ...(e > s ? [mark] : []), el._raw.slice(e));
+}
+// The gateway voices markup-stripped sentences, so match ignoring whitespace and markup.
+function locate(raw, from, text) {
+  const want = text.replace(/\s+/g, "");
+  if (!want) return null;
+  for (let i = raw.indexOf(want[0], from); i !== -1; i = raw.indexOf(want[0], i + 1)) {
+    let j = i, k = 0;
+    while (j < raw.length && k < want.length) {
+      if (raw[j] === want[k]) { j++; k++; }
+      else if (/[\s*_#`>|~]/.test(raw[j])) j++;
+      else break;
+    }
+    if (k === want.length) return [i, j];
+  }
+  return null;
+}
+function highlight(el, text) {
+  if (!el) return;
+  el._hl = text == null ? null : locate(el._raw, el._cur || 0, text);
+  if (el._hl) el._cur = el._hl[1];
+  renderBot(el);
+}
+
+// ---- Timings ----------------------------------------------------------------
+let best = Infinity;
+function setT(id, v) { $(id).textContent = v; }
+function resetTimings(keepAsr) {
+  ["t-ttft", "t-first", "t-llm", "t-sent", "t-rtf", "t-audio"].forEach((id) => setT(id, "–"));
+  if (!keepAsr) setT("t-asr", "–");
+}
+
+function onMessage(ev) {
+  if (typeof ev.data !== "string") {            // WAV for the preceding "audio" frame
+    const m = pendingMeta; pendingMeta = null;
+    if (m && m.turn === turn) playWav(ev.data, m);
+    return;
+  }
+  const m = JSON.parse(ev.data);
+  if (m.type === "audio") {
+    pendingMeta = m;
+    if (m.turn === turn) {
+      said[m.idx] = m.text;
+      if (cur >= 0 && m.idx === cur + 1) setCaption(said[cur], m.text);   // preview what comes next
+    }
+    return;
+  }
+  if (m.turn !== turn) return;                   // stale frame from an interrupted turn
+  if (m.type === "token") {
+    const first = !botEl;
+    if (first) { botEl = add("bot", ""); botEl._raw = ""; setT("t-ttft", `${Math.round(performance.now() - stats.asked)} ms`); }
+    const follow = nearBottom();
+    botEl._raw += m.text; renderBot(botEl);
+    if (follow) log.scrollTop = log.scrollHeight;
+    if (cur < 0) setCaption(clip(botEl._raw.trim(), 150), "", { faint: true, animate: first });
+  } else if (m.type === "llm_done") {
+    setT("t-ttft", `${m.ttft_ms} ms`); setT("t-llm", secs(m.llm_ms));
+  } else if (m.type === "done") {
+    turnDone = true; settle();
+  } else if (m.type === "error") {
+    add("err", m.error);
+    setCaption("Something went wrong on the Sparks.", "", { eyebrow: "Error", faint: true, animate: true });
+    turnDone = true; settle();
+  }
+}
+
+// ---- Playback: gapless queue of sentence WAVs -----------------------------
+let actx, nextAt = 0, sources = [];
+function audioCtx() {
+  // iOS: a "playback" session keeps the voice audible with the ringer switch on silent.
+  if (!actx && navigator.audioSession) navigator.audioSession.type = "playback";
+  return actx || (actx = new AudioContext());
+}
+function output() {                             // playback runs through an analyser for the sphere
+  if (!outAn) { outAn = audioCtx().createAnalyser(); outAn.fftSize = 1024; outAn.connect(audioCtx().destination); }
+  return outAn;
+}
+async function playWav(buf, m) {
+  const ctx = audioCtx(), el = botEl;
+  if (ctx.state !== "running") ctx.resume().catch(() => {});   // iOS suspends it after a call or the lock screen
+  decoding++;
+  let audio;
+  try { audio = await ctx.decodeAudioData(buf); } finally { decoding--; }
+  if (m.turn !== turn) return;
+  const src = ctx.createBufferSource();
+  src.buffer = audio; src.connect(output());
+  const at = Math.max(ctx.currentTime + 0.02, nextAt);
+  src.start(at); nextAt = at + audio.duration; sources.push(src);
+  setTimeout(() => {
+    if (m.turn !== turn) return;
+    cur = m.idx; setState("speaking");
+    setCaption(said[cur] || m.text, said[cur + 1] || "", { animate: true });
+    highlight(el, m.text);
+  }, (at - ctx.currentTime) * 1000);
+  src.onended = () => {
+    sources = sources.filter((s) => s !== src);
+    if (m.turn !== turn) return;
+    if (!sources.length) highlight(el, null);
+    settle();
+  };
+  stats.sent = (stats.sent || 0) + 1;
+  stats.synth = (stats.synth || 0) + m.synth_ms; stats.audio = (stats.audio || 0) + m.audio_ms;
+  setT("t-sent", stats.sent);
+  setT("t-rtf", `${(stats.audio / stats.synth).toFixed(1)}× real time`);
+  setT("t-audio", secs(stats.audio));
+  if (m.idx === 0) {
+    const firstSound = performance.now() + (at - ctx.currentTime) * 1000;
+    setT("t-first", `${Math.round(firstSound - stats.asked)} ms`);
+    const parts = [];
+    if (stats.released) {
+      const v = Math.round(firstSound - stats.released);
+      best = Math.min(best, v);
+      setT("t-v2v", `${v.toLocaleString()} ms`); setT("t-best", `· best ${best.toLocaleString()} ms`);
+      setT("t-sum", `${secs(v)} voice to voice`);
+      parts.push(`Heard in ${secs(stats.asrMs)}`, `Speaking in ${secs(v)}`);
+    } else {
+      setT("t-sum", `${secs(firstSound - stats.asked)} to first sound`);
+      parts.push(`Speaking in ${secs(firstSound - stats.asked)}`);
+    }
+    if (innerWidth >= 640) parts.push("Nothing leaves this room");   // one tidy line on a phone
+    $("stats-line").innerHTML = parts.map((p) => `<span>${p}</span>`).join('<span class="sep">·</span>');
+  }
+}
+function stopAudio() {
+  for (const s of sources) { try { s.stop(); } catch {} }
+  sources = []; nextAt = 0;
+}
+function stopSpeaking() {                        // the Stop button, the sphere, Esc
+  stopAudio(); asrSeq++; turn += 1; send({ type: "cancel" });
+  highlight(botEl, null); turnDone = true; setState("idle");
+  setCaption("Stopped.", "", { eyebrow: "Ask something else", faint: true, animate: true });
+}
+
+function ask(text, asrMs) {
+  turn += 1; botEl = null; pendingMeta = null; said = []; cur = -1;
+  stats = { released: asrMs == null ? null : stats.released, asrMs, asked: performance.now() };
+  resetTimings(asrMs != null);
+  $("chips").hidden = true;
+  const u = add("user", text);
+  if (asrMs != null) meta(u, `heard in ${asrMs} ms`);
+  setCaption("One moment…", "", { eyebrow: text, faint: true, animate: true });
+  turnDone = false; setState("thinking");
+  send({ type: "user", id: turn, text, voice });
+}
+
+// ---- Microphone → 16 kHz WAV → Ming ASR on the Spark ------------------------------------
+// A quick tap starts listening and the turn ends on its own after a pause (or on a second tap);
+// holding the button (or Space) records until release.
+const TAP_MS = 350, SPEECH_RMS = 0.02, QUIET_RMS = 0.012, END_SILENCE_MS = 1100, NO_SPEECH_MS = 8000, MAX_MS = 30000;
+let stream, recNode, chunks = [], recording = false, wantRec = false, toggleMode = false, asrSeq = 0;
+let pressAt = 0, sendOnRelease = false, vad = null;
+function pressDown() {
+  talk.classList.add("pressed");
+  if (recording || wantRec) { sendOnRelease = toggleMode; return; }   // second tap in tap mode sends
+  pressAt = performance.now(); toggleMode = false; startRec();
+}
+function pressUp() {
+  talk.classList.remove("pressed");
+  if (sendOnRelease) { sendOnRelease = false; stopRec(); return; }
+  if (!recording && !wantRec) return;
+  if (performance.now() - pressAt < TAP_MS) { toggleMode = true; talkLabel(); return; }   // tap: keep listening
+  stopRec();
+}
+async function startRec() {
+  wantRec = true; asrSeq++;
+  stopAudio(); turn += 1; send({ type: "cancel" });   // barge-in
+  const ctx = audioCtx(); ctx.resume().catch(() => {});
+  if (navigator.audioSession) navigator.audioSession.type = "play-and-record";
+  try {
+    stream = stream || await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch {
+    wantRec = false; turnDone = true; setState("idle");
+    setCaption("Microphone access is blocked.",
+               TOUCH ? "Tap aA in the address bar → Website Settings → Microphone → Allow." : "Allow it in the browser's site settings, or type instead.",
+               { eyebrow: "Microphone", faint: true, animate: true });
+    return;
+  }
+  if (!wantRec) { releaseMic(); return; }         // released before the mic opened
+  const srcNode = ctx.createMediaStreamSource(stream);
+  recNode = ctx.createScriptProcessor(4096, 1, 1);
+  chunks = [];
+  vad = { t0: performance.now(), speech: 0, quiet: 0 };
+  recNode.onaudioprocess = (e) => {
+    const x = e.inputBuffer.getChannelData(0);
+    chunks.push(new Float32Array(x));
+    if (!toggleMode || !recording) return;      // auto end-of-turn only in tap mode
+    let s = 0; for (const v of x) s += v * v;
+    const r = Math.sqrt(s / x.length), blockMs = x.length / ctx.sampleRate * 1000;
+    if (r > SPEECH_RMS) { vad.speech += blockMs; vad.quiet = 0; } else if (r < QUIET_RMS) vad.quiet += blockMs;
+    const elapsed = performance.now() - vad.t0;
+    if ((vad.speech > 250 && vad.quiet > END_SILENCE_MS) || (!vad.speech && elapsed > NO_SPEECH_MS) || elapsed > MAX_MS) stopRec();
+  };
+  srcNode.connect(recNode); recNode.connect(ctx.destination);
+  recNode._src = srcNode;
+  micAn = micAn || Object.assign(ctx.createAnalyser(), { fftSize: 1024 });
+  srcNode.connect(micAn);
+  recording = true; turnDone = true; setState("listening");
+  $("chips").hidden = true;
+  setCaption("Listening…", "", { eyebrow: toggleMode || TOUCH ? "Pause when you're done" : "Release to send", faint: true, animate: true });
+}
+function releaseMic() {
+  if (TOUCH && stream) {                         // phones route playback to the earpiece while the mic is open
+    stream.getTracks().forEach((t) => t.stop()); stream = null;
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
+  }
+}
+async function stopRec() {
+  wantRec = false;
+  if (!recording) return;
+  recording = false; toggleMode = false;
+  stats.released = performance.now();
+  recNode.onaudioprocess = null; recNode.disconnect(); recNode._src.disconnect();
+  releaseMic();
+  const pcm = resample(concat(chunks), audioCtx().sampleRate, 16000);
+  if (pcm.length < 16000 * 0.3) {               // nothing usable
+    setState("idle");
+    setCaption("I didn't hear anything.", "", { eyebrow: "Try again", faint: true, animate: true });
+    return;
+  }
+  const seq = ++asrSeq;
+  setState("hearing");
+  setCaption("One moment…", "", { eyebrow: "Transcribing", faint: true, animate: true });
+  try {
+    const t = performance.now();
+    const r = await fetch(`${ASR_URL}/asr`, { method: "POST", body: wav16(pcm), headers: { "content-type": "audio/wav" } });
+    const j = await r.json();
+    if (seq !== asrSeq) return;                   // stopped or re-recorded while the Spark was transcribing
+    const asrMs = Math.round(performance.now() - t);
+    setT("t-asr", `${asrMs} ms`);
+    j.text = cleanAsr(j.text || "");
+    if (!j.text) {
+      setState("idle");
+      setCaption("I didn't catch that.", "", { eyebrow: "Try again", faint: true, animate: true });
+      return;
+    }
+    ask(j.text, asrMs);
+  } catch (e) {
+    if (seq !== asrSeq) return;
+    add("err", `Speech recognition unreachable at ${ASR_URL}: ${e.message}`); setState("idle");
+    setCaption("Can't reach speech recognition.", "", { eyebrow: "Offline", faint: true, animate: true });
+  }
+}
+// Ming ASR sometimes spells punctuation as tokens ("japan <questionmark>").
+const PUNCT = { questionmark: "?", comma: ",", period: ".", fullstop: ".", exclamationmark: "!" };
+const cleanAsr = (t) => t.replace(/\s*<(\w+)>/g, (_, w) => PUNCT[w.toLowerCase()] ?? "").trim();
+function concat(parts) {
+  const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+function resample(x, from, to) {
+  if (from === to) return x;
+  const n = Math.floor(x.length * to / from), out = new Float32Array(n), r = from / to;
+  for (let i = 0; i < n; i++) {                   // box-filter average over each source span
+    const a = Math.floor(i * r), b = Math.min(x.length, Math.floor((i + 1) * r));
+    let s = 0; for (let j = a; j < b; j++) s += x[j];
+    out[i] = s / Math.max(1, b - a);
+  }
+  return out;
+}
+function wav16(x) {
+  const buf = new ArrayBuffer(44 + x.length * 2), v = new DataView(buf);
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + x.length * 2, true); w(8, "WAVEfmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, "data"); v.setUint32(40, x.length * 2, true);
+  for (let i = 0; i < x.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x[i])) * 0x7fff, true);
+  return buf;
+}
+
+// ---- Controls --------------------------------------------------------------
+const typing = () => document.activeElement === $("text");
+addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !e.repeat && !typing()) { e.preventDefault(); pressDown(); }
+  if (e.key === "Escape") {
+    closeVoiceMenu(); setSheet(false); setTyping(false);
+    if (recording) stopRec(); else if (uiState !== "idle") stopSpeaking();
+  }
+});
+addEventListener("keyup", (e) => {
+  if (e.code === "Space" && !typing()) { e.preventDefault(); pressUp(); }
+});
+talk.addEventListener("pointerdown", (e) => { talk.setPointerCapture(e.pointerId); pressDown(); });
+talk.addEventListener("pointerup", pressUp);
+talk.addEventListener("pointercancel", pressUp);
+talk.addEventListener("contextmenu", (e) => e.preventDefault());
+$("stop").onclick = stopSpeaking;
+sphere.onclick = () => { if (uiState !== "idle" && uiState !== "listening") stopSpeaking(); };
+
+function setTyping(on) {
+  dock.classList.toggle("typing", on);
+  $("kbd").setAttribute("aria-pressed", on);
+  if (on) $("text").focus(); else $("text").blur();
+}
+$("kbd").onclick = () => setTyping(!dock.classList.contains("typing"));
+$("text").addEventListener("input", () => { $("send").disabled = !$("text").value.trim(); });
+$("text").addEventListener("blur", () => setTimeout(() => {   // tapping away with nothing typed closes the field
+  if (!typing() && !$("text").value.trim()) setTyping(false);
+}, 150));
+$("type").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const t = $("text").value.trim(); if (!t) return;
+  $("text").value = ""; $("send").disabled = true; setTyping(false);
+  stopAudio(); audioCtx().resume(); ask(t, null);
+});
+
+// iOS keyboard: size the app to the visible area and shrink the sphere while typing.
+const vv = window.visualViewport;
+function fitViewport() {
+  if (!vv) return;
+  document.documentElement.style.setProperty("--app-h", `${vv.height}px`);
+  document.body.classList.toggle("kb", typing() && vv.height < innerHeight * 0.8);
+  if (vv.offsetTop) scrollTo(0, 0);
+}
+vv?.addEventListener("resize", fitViewport); vv?.addEventListener("scroll", fitViewport);
+$("text").addEventListener("focus", () => setTimeout(fitViewport, 300));
+fitViewport();
+
+// Voice picker
+function renderVoices() {
+  $("voice-name").textContent = VOICES[voice][0];
+  $("voice-menu").replaceChildren(...Object.entries(VOICES).map(([id, [name, accent]]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.setAttribute("role", "menuitemradio"); b.setAttribute("aria-checked", id === voice);
+    b.innerHTML = "<span></span><small></small>";
+    b.firstChild.textContent = name; b.lastChild.textContent = accent;
+    b.onclick = () => { voice = id; store.set("voice", id); renderVoices(); closeVoiceMenu(); };
+    return b;
+  }));
+}
+function closeVoiceMenu() { $("voice-menu").classList.remove("open"); $("voice-btn").setAttribute("aria-expanded", "false"); }
+$("voice-btn").onclick = () => {
+  const open = $("voice-menu").classList.toggle("open");
+  $("voice-btn").setAttribute("aria-expanded", open);
+};
+// pointerdown, not click: iOS doesn't send clicks from plain areas of the page
+document.addEventListener("pointerdown", (e) => {
+  if (!$("voice-menu").contains(e.target) && !$("voice-btn").contains(e.target)) closeVoiceMenu();
+});
+renderVoices();
+
+// Sheet
+function setSheet(open) {
+  $("sheet").classList.toggle("open", open); $("scrim").classList.toggle("open", open);
+  $("open-sheet").setAttribute("aria-expanded", open);
+  if (open) log.scrollTop = log.scrollHeight;
+}
+$("open-sheet").onclick = () => setSheet(!$("sheet").classList.contains("open"));
+$("close-sheet").onclick = () => setSheet(false);
+$("scrim").onclick = () => setSheet(false);
+if (innerWidth < 640) $("timings-box").open = false;   // on a phone the transcript gets the room
+$("reset").onclick = () => {
+  stopAudio(); asrSeq++; turn += 1; send({ type: "reset" });
+  turnDone = true; setState("idle"); emptyLog(); resetTimings(false); welcome(); setSheet(false);
+  setT("t-sum", ""); $("stats-line").innerHTML = "<span>Nothing leaves this room</span>";
+};
+
+// Back from the lock screen or another app: wake audio, re-check the services, re-take the wake lock.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  actx?.resume().catch(() => {}); health(); if (uiState !== "idle") keepAwake(true);
+});
+
+// ---- Health ----------------------------------------------------------------
+async function health() {
+  const h = { asr: false, llm: false, tts: false };
+  try { Object.assign(h, await (await fetch("/health")).json()); } catch {}
+  try { h.asr = (await fetch(`${ASR_URL}/health`)).ok; } catch {}
+  const down = [ws?.readyState !== WebSocket.OPEN && "connection", !h.asr && "speech recognition",
+                !h.llm && "the chat model", !h.tts && "voice"].filter(Boolean);
+  $("health").className = down.length ? "bad" : "ok";
+  $("health-text").textContent = down.length ? (innerWidth < 640 ? "Offline" : `Offline: ${down.join(", ")}`)
+                                             : BADGE;
+}
+// This setup's machines, model names and voices.
+async function loadConfig() {
+  try {
+    const c = await (await fetch("/api/config")).json();
+    BADGE = c.badge;
+    for (const k of ["listen", "write", "voice"]) $(`m-${k}`).textContent = c.models[k].label;
+    if (c.tts.voices.length) VOICES = Object.fromEntries(c.tts.voices.map((v) => [v.id, [v.name, (v.tag || "").split(" · ")[0]]]));
+    if (!VOICES[store.get("voice")]) voice = VOICES[c.tts.assistant_voice] ? c.tts.assistant_voice : Object.keys(VOICES)[0];
+    renderVoices(); health();
+  } catch {}
+}
+setState("idle"); loadConfig(); health(); setInterval(health, 5000);
+</script>
+</body>
+</html>

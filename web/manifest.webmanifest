@@ -1,0 +1,9 @@
+{
+  "name": "Spark Voice",
+  "short_name": "Spark Voice",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#04050a",
+  "theme_color": "#04050a",
+  "icons": [{ "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }]
+}

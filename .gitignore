@@ -1,0 +1,10 @@
+.env
+data/
+__pycache__/
+*.pyc
+.venv/
+tools/recording/takes/
+tools/recording/xauth
+tools/recording/*.log
+tools/recording/xorg-gpu.local.conf
+.ruff_cache/

@@ -1,0 +1,70 @@
+# Spark Voice: which model does each job, and where it runs.
+#
+# ${NAME:-default} values come from the environment, or from .env when you use docker compose.
+# The defaults run everything on one DGX Spark. For two, set SPARK2 in .env (see docs/two-sparks.md).
+# To bring your own models, see docs/models.md.
+
+machine: DGX Spark
+
+# One entry per machine, for the "under the hood" views. Each runs the stats agent (engines/stats).
+nodes:
+  - name: Spark 1
+    stats: http://${SPARK1:-127.0.0.1}:${STATS_PORT:-7796}
+  - name: Spark 2
+    stats: http://${SPARK2:-}:${STATS_PORT:-7796}
+
+# The chat model: writes the podcast and answers the assistant. Any OpenAI-compatible server works.
+llm:
+  label: Nemotron 3.5 Lightning
+  spec: 30B MoE · 3B active · NVFP4
+  base_url: http://${LLM_HOST:-127.0.0.1}:${LLM_PORT:-8000}/v1
+  model: nemotron-3.5-lightning-30b
+  api_key: ${LLM_API_KEY:-}
+  node: ${LLM_NODE:-Spark 1}
+  extra_body:                       # sent with every request; turns Nemotron's reasoning off for speed
+    chat_template_kwargs: {enable_thinking: false}
+
+# Text to speech. provider: ming (cloning, voice design, moods) or openai (built-in voices only).
+tts:
+  provider: ming
+  label: Ming 3.0 TTS
+  spec: 0.5B · voice cloning
+  url: http://${TTS_HOST:-127.0.0.1}:${TTS_PORT:-7798}
+  node: ${TTS_NODE:-Spark 1}
+
+# Speech to text. provider: ming, or openai (any server with /v1/audio/transcriptions).
+asr:
+  provider: ming
+  label: Ming 3.0 ASR
+  spec: tiny · speech to text
+  url: http://${ASR_HOST:-127.0.0.1}:${ASR_PORT:-7797}
+  node: ${ASR_NODE:-Spark 1}
+
+# Web search for the podcast's research step. provider: searxng, or none.
+search:
+  provider: searxng
+  label: SearXNG
+  url: http://${SEARCH_HOST:-127.0.0.1}:${SEARCH_PORT:-7795}
+  node: ${SEARCH_NODE:-Spark 1}
+
+assistant:
+  voice: US_James                   # one of the speech model's built-in voices
+
+podcast:
+  hosts:
+    - key: THEO
+      name: Theo
+      hue: 205
+      bio: Relaxed, curious, a little goofy. Asks the questions the listener is thinking and makes the jokes.
+      voice: voices/theo.wav        # cloned when the speech model can clone
+      voice_text: Okay so, welcome back to Spark Talk. Today's episode is, uh, kind of wild, because this whole show is being made by two little boxes on my desk.
+      voice_description: A relaxed man in his thirties hosting a casual late-night podcast.
+      fallback_voice: US_James      # a built-in voice, for speech models that can't clone
+    - key: MARA
+      name: Mara
+      hue: 330
+      bio: Sharp, warm, quick to laugh. Knows the topic well and explains it in plain words with good examples.
+      voice: voices/mara.wav
+      voice_text: Wait, really? So neither of us is actually here? Ah, okay, that, that explains the coffee.
+      voice_description: An adult woman around forty with a slightly husky, low-pitched voice.
+      fallback_voice: US_Emma

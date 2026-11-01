@@ -1,0 +1,8 @@
+.git
+.venv
+.ruff_cache
+data
+tools
+engines
+**/__pycache__
+.env

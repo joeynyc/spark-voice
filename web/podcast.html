@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04050a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spark Talk">
+<title>Spark Talk</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%235ad8ff%27/%3E%3Cstop offset=%27.5%27 stop-color=%27%237a6bff%27/%3E%3Cstop offset=%271%27 stop-color=%27%23ff5fc8%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2715%27 fill=%27url(%23g)%27/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="/icon.png">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #04050a; --ink: #f5f5f7; --dim: rgba(245,245,247,.62); --faint: rgba(245,245,247,.36);
+    --c1: #5ad8ff; --c2: #7a6bff; --c3: #ff5fc8; --c4: #ffb36b;
+    --ok: #5ee08a; --warn: #ffb36b; --air: #ff3b55;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+    --glass: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    --rim: inset 0 0 0 .5px rgba(255,255,255,.2), inset 1.5px 1.5px 1px -1px rgba(255,255,255,.6),
+           inset -1px -1px 1px -1px rgba(255,255,255,.25);
+    --well: rgba(0,0,0,.3);
+    --hair: inset 0 0 0 .5px rgba(255,255,255,.13);
+    --ease: cubic-bezier(.2,.8,.2,1);
+    --theo: 205; --mara: 330;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer; }
+  :focus-visible { outline: 2px solid rgba(255,255,255,.6); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .scrolly { scrollbar-width: none; }
+  .scrolly::-webkit-scrollbar { display: none; }
+
+  /* ---- Backdrop ---- */
+  .bg { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .bg i { position: absolute; border-radius: 50%; filter: blur(50px); }
+  .bg .b1 { width: 900px; height: 700px; left: 18%; top: 30%; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(40,150,255,.16), transparent); }
+  .bg .b2 { width: 900px; height: 700px; left: 48%; top: 20%; background: radial-gradient(closest-side, rgba(255,70,170,.12), transparent); }
+  .bg .b3 { width: 700px; height: 520px; left: -8%; top: 62%; background: radial-gradient(closest-side, rgba(122,107,255,.12), transparent); }
+  .bg svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .07; mix-blend-mode: overlay; }
+  .glass { background: var(--glass); backdrop-filter: blur(16px) saturate(170%); -webkit-backdrop-filter: blur(16px) saturate(170%);
+           box-shadow: var(--rim), 0 1px 1px rgba(0,0,0,.4), 0 24px 60px rgba(0,0,0,.45); }
+
+  /* ---- Frame: one screen on a computer, a scrolling page on a phone ---- */
+  .app { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;
+         padding: max(18px, env(safe-area-inset-top)) max(clamp(16px, 2.6vw, 36px), env(safe-area-inset-right))
+                  max(20px, env(safe-area-inset-bottom)) max(clamp(16px, 2.6vw, 36px), env(safe-area-inset-left)); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); gap: 18px; }
+  @media (min-width: 1101px) and (min-height: 640px) {
+    body { overflow: hidden; }
+    .app { height: 100vh; height: 100dvh; }
+    .grid { flex: 1; min-height: 0; }
+    #stage, #side { min-height: 0; }
+    #script { flex: 1; min-height: 0; overflow-y: auto; }
+  }
+  @media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---- Header ---- */
+  header { display: flex; align-items: center; gap: 14px; min-height: 40px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+  .dotorb { width: 20px; height: 20px; border-radius: 50%; background: conic-gradient(var(--c1), var(--c2), var(--c3), var(--c1)); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.5); }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; }
+  .seg > * { border: 0; background: transparent; border-radius: 999px; padding: 7px 14px; font-size: 13.5px; font-weight: 500;
+             color: var(--dim); text-decoration: none; white-space: nowrap; transition: color .2s, background .3s var(--ease); }
+  .seg > *:hover { color: var(--ink); }
+  .seg > .on { color: #0a0a12; background: linear-gradient(180deg, #fff, #e4e4ee); box-shadow: 0 3px 10px rgba(0,0,0,.3); }
+  #health { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); white-space: nowrap; }
+  #health .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  #health.ok .dot { background: var(--ok); box-shadow: 0 0 10px rgba(94,224,138,.8); }
+  #health.bad { color: var(--warn); }
+  #health.bad .dot { background: var(--warn); }
+  @media (max-width: 640px) { .brand span { display: none; } #health-text { display: none; } }
+
+  /* ---- Stage ---- */
+  #stage { position: relative; border-radius: 30px; display: flex; flex-direction: column; overflow: hidden; isolation: isolate; }
+  #stage::before { content: ""; position: absolute; inset: auto -10% -30% -10%; height: 60%; z-index: -1; pointer-events: none;
+                   background: radial-gradient(50% 50% at 50% 50%, rgba(122,107,255,.16), transparent 70%); }
+  .stagebar { display: flex; align-items: center; gap: 14px; padding: 18px 22px 0; }
+  .wordmark { font-size: 15px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; white-space: nowrap; }
+  .wordmark b { background: linear-gradient(100deg, var(--c1), var(--c2) 50%, var(--c3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ep { min-width: 0; flex: 1; text-align: center; font-size: 14px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ep b { color: var(--ink); font-weight: 600; }
+  /* ON AIR: a lit layer fades over an unlit one (opacity only) */
+  .onair { position: relative; padding: 6px 12px; border-radius: 9px; font-size: 12px; font-weight: 800; letter-spacing: .2em; white-space: nowrap;
+           color: rgba(255,255,255,.28); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+  .onair i { position: absolute; inset: 0; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-style: normal;
+             color: #fff; background: linear-gradient(180deg, #ff5a6e, #e0203d); text-shadow: 0 0 10px rgba(255,255,255,.7);
+             box-shadow: 0 0 24px rgba(255,59,85,.75), 0 0 60px rgba(255,59,85,.35), inset 0 1px 0 rgba(255,255,255,.4); opacity: 0; transition: opacity .5s; }
+  .live .onair i { opacity: 1; animation: hum 2.4s ease-in-out infinite; }
+  @keyframes hum { 50% { opacity: .82; } }
+
+  .hosts { flex: 1; min-height: 240px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 8px 4% 0; }
+  .host { --h: 205; --size: clamp(118px, min(17vw, 26vh), 230px); position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .host .glow { position: absolute; left: 50%; top: 50%; width: calc(var(--size) * 2.6); height: calc(var(--size) * 2.6); margin: calc(var(--size) * -1.45) 0 0 calc(var(--size) * -1.3);
+                border-radius: 50%; pointer-events: none; z-index: -1; opacity: .18; transition: opacity .6s var(--ease);
+                background: radial-gradient(closest-side, hsl(var(--h) 95% 62% / .42), hsl(var(--h) 95% 62% / .08) 60%, transparent); }
+  .host.talking .glow { opacity: 1; }
+  .rig { position: relative; width: var(--size); height: var(--size); will-change: transform; }
+  .rig canvas { position: absolute; left: -32%; top: -32%; width: 164%; height: 164%; pointer-events: none; }
+  .head { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #0b0b18;
+          box-shadow: 0 30px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06); }
+  .head::before { content: ""; position: absolute; inset: -30%;
+                  background: conic-gradient(hsl(var(--h) 95% 64%), hsl(calc(var(--h) + 45) 95% 62%), hsl(calc(var(--h) + 140) 90% 66%), hsl(var(--h) 95% 64%));
+                  filter: blur(14px); animation: spin 16s linear infinite; }
+  .host.talking .head::before { animation-duration: 5s; }
+  .head::after { content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: 3;
+                 background: radial-gradient(110% 80% at 30% 14%, rgba(255,255,255,.5), transparent 40%), radial-gradient(80% 60% at 70% 100%, rgba(0,0,0,.28), transparent 60%);
+                 box-shadow: inset 0 0 0 1px rgba(255,255,255,.45), inset 2px 4px 2px -2px rgba(255,255,255,.9); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .face { position: absolute; inset: 0; z-index: 2; }
+  .eyes { position: absolute; left: 50%; top: 33%; width: 46%; margin-left: -23%; display: flex; justify-content: space-between; will-change: transform; transition: transform .5s var(--ease); }
+  .eye { width: 26%; aspect-ratio: .64; border-radius: 50%; background: rgba(6,6,18,.9); position: relative; transform-origin: 50% 60%; will-change: transform; }
+  .eye::after { content: ""; position: absolute; left: 22%; top: 16%; width: 34%; height: 24%; border-radius: 50%; background: rgba(255,255,255,.9); }
+  .blush { position: absolute; top: 55%; width: 17%; height: 9%; border-radius: 50%; background: hsl(calc(var(--h) + 120) 100% 75% / .5); filter: blur(4px); }
+  .blush.l { left: 14%; } .blush.r { right: 14%; }
+  .mouth { position: absolute; left: 50%; top: 60%; width: 22%; height: 15%; margin-left: -11%; border-radius: 42% 42% 50% 50% / 30% 30% 70% 70%;
+           background: rgba(6,6,18,.9); transform-origin: 50% 20%; transform: scaleY(.16); will-change: transform; overflow: hidden; }
+  .mouth::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 8%; height: 34%; border-radius: 50% 50% 40% 40%; background: hsl(350 80% 62% / .85); }
+  .plate { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .plate b { font-size: clamp(17px, 1.6vw, 21px); font-weight: 700; letter-spacing: -.02em; }
+  .plate small { font-size: 12px; color: var(--faint); letter-spacing: .04em; }
+  .plate .bar { width: 46px; height: 3px; border-radius: 3px; background: hsl(var(--h) 95% 66%); transform: scaleX(0); transition: transform .4s var(--ease); box-shadow: 0 0 12px hsl(var(--h) 95% 66%); }
+  .host.talking .plate .bar { transform: scaleX(1); }
+
+  .caption { min-height: 108px; padding: 4px 8% 2px; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .caption p { margin: 0; max-width: 34ch; font-size: clamp(19px, 1.9vw, 27px); line-height: 1.32; font-weight: 500; letter-spacing: -.02em; text-wrap: balance; }
+  .caption .who { display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+  .caption p.long { font-size: clamp(17px, 1.55vw, 22px); }
+  .caption .w { opacity: .3; transition: opacity .18s; }
+  .caption .w.on { opacity: 1; }
+  .caption .idle { color: var(--dim); font-weight: 400; }
+  .caption .idle b { display: block; margin-bottom: 8px; font-size: clamp(34px, 4vw, 54px); line-height: 1; font-weight: 800; letter-spacing: -.045em; color: var(--ink); }
+  .caption .idle b em { font-style: normal; background: linear-gradient(100deg, var(--c1), var(--c2) 50%, var(--c3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .deck { padding: 6px 20px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .timeline { display: flex; gap: 3px; height: 30px; align-items: stretch; }
+  .timeline .s { position: relative; border: 0; padding: 0; min-width: 4px; border-radius: 5px; background: hsl(var(--h) 60% 50% / .2); overflow: hidden; }
+  .timeline .s::before { content: ""; position: absolute; inset: 0; background: hsl(var(--h) 95% 64%); transform-origin: left; transform: scaleX(var(--p, 0)); }
+  .timeline .s.ready { background: hsl(var(--h) 70% 55% / .38); }
+  .timeline .s.played::before { --p: 1; }
+  .timeline .s.cur { box-shadow: 0 0 14px hsl(var(--h) 95% 64% / .7); }
+  .timeline .s.voicing { background: repeating-linear-gradient(-45deg, hsl(var(--h) 70% 55% / .3) 0 5px, hsl(var(--h) 70% 55% / .12) 5px 10px); }
+  .timeline .s.err { background: rgba(255,120,120,.35); }
+  .timeline.empty { background: rgba(255,255,255,.04); border-radius: 7px; box-shadow: var(--hair); }
+  .transport { display: flex; align-items: center; gap: 8px; }
+  .round { width: 44px; height: 44px; flex: none; border: 0; border-radius: 50%; background: #fff; color: #0a0a12; display: flex; align-items: center; justify-content: center;
+           box-shadow: 0 6px 16px rgba(0,0,0,.4); transition: transform .15s; }
+  .round:active { transform: scale(.92); }
+  .round:disabled { opacity: .35; cursor: default; }
+  .ghostbtn { border: 0; border-radius: 999px; padding: 8px 13px; font-size: 13px; color: var(--dim); background: rgba(255,255,255,.06);
+              box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12); white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+  .ghostbtn:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,.1); }
+  .ghostbtn:disabled { opacity: .4; cursor: default; }
+  .ghostbtn.on { color: #fff; }
+  .clock { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .credits { margin-left: auto; font-size: 12px; color: var(--faint); text-align: right; line-height: 1.4; }
+  .credits b { color: var(--dim); font-weight: 600; }
+
+  /* ---- Side ---- */
+  #side { border-radius: 30px; display: flex; flex-direction: column; overflow: hidden; }
+  .compose { padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 10px; border-bottom: .5px solid rgba(255,255,255,.08); }
+  .label { display: flex; align-items: baseline; gap: 10px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  .label .aside { margin-left: auto; letter-spacing: .02em; text-transform: none; font-weight: 500; font-size: 12px; white-space: nowrap; }
+  .field { width: 100%; display: block; border: 0; outline: none; resize: none; border-radius: 16px; padding: 12px 14px; background: var(--well); box-shadow: var(--hair);
+           color: var(--ink); font-size: 18px; font-weight: 300; letter-spacing: -.01em; line-height: 1.38; height: 76px; transition: box-shadow .25s; }
+  .field:focus { box-shadow: inset 0 0 0 1px rgba(255,255,255,.32), 0 0 0 4px rgba(122,107,255,.14); }
+  .field::placeholder { color: rgba(245,245,247,.3); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 0; border-radius: 999px; padding: 6px 11px; font-size: 13px; line-height: 1.35; color: rgba(245,245,247,.85); background: rgba(255,255,255,.06);
+          box-shadow: inset 0 0 0 .5px rgba(255,255,255,.14); transition: transform .15s var(--ease), background .2s; white-space: nowrap; }
+  .chip:hover { background: rgba(255,255,255,.11); color: #fff; }
+  .chip:active { transform: scale(.95); }
+  .chip.dice { background: linear-gradient(100deg, rgba(90,216,255,.22), rgba(255,95,200,.22)); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.3); color: #fff; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .len { background: var(--well); box-shadow: var(--hair); }
+  .len > * { padding: 6px 12px; font-size: 13px; }
+  .golo { position: relative; margin-top: 4px; }
+  .golo::before { content: ""; position: absolute; inset: -6px 10%; border-radius: 999px; filter: blur(20px); opacity: .55;
+                  background: linear-gradient(100deg, var(--c1), var(--c2), var(--c3), var(--c4)); transition: opacity .4s; }
+  .golo:has(#go:disabled)::before { opacity: .2; }
+  #go { position: relative; width: 100%; height: 50px; border: 0; border-radius: 999px; font-size: 16.5px; font-weight: 600; letter-spacing: -.01em;
+        color: #0a0a12; background: linear-gradient(180deg, #fff, #e6e4f0); overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 9px;
+        box-shadow: inset 0 -1px 0 rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.4); transition: transform .15s var(--ease); }
+  #go:hover { transform: translateY(-1px); }
+  #go:active { transform: scale(.98); }
+  #go:disabled { cursor: default; transform: none; color: rgba(10,10,18,.6); }
+  #go kbd { position: absolute; right: 16px; font: 500 12px var(--sans); color: rgba(10,10,18,.4); }
+  @media (pointer: coarse) { #go kbd { display: none; } }
+  #go.busy::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(122,107,255,.35), transparent); animation: sweep 1.2s var(--ease) infinite; }
+  @keyframes sweep { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+
+  .scripthead { display: flex; align-items: baseline; gap: 10px; padding: 14px 20px 8px; }
+  .scripthead .label { flex: 1; }
+  #status { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #script { display: flex; flex-direction: column; gap: 4px; padding: 0 10px 16px; }
+  .ln { --h: 205; display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; width: 100%; text-align: left; border: 0; background: transparent;
+        padding: 9px 10px; border-radius: 16px; color: var(--ink); animation: lnIn .45s var(--ease); transition: background .25s; }
+  @keyframes lnIn { from { opacity: 0; transform: translateY(8px); } }
+  .ln:hover { background: rgba(255,255,255,.04); }
+  .ln .av { width: 30px; height: 30px; border-radius: 50%; position: relative; overflow: hidden; background: conic-gradient(hsl(var(--h) 95% 64%), hsl(calc(var(--h) + 45) 95% 62%), hsl(calc(var(--h) + 140) 90% 66%), hsl(var(--h) 95% 64%));
+             box-shadow: inset 0 0 0 .5px rgba(255,255,255,.5); }
+  .ln .av::after { content: ""; position: absolute; inset: 0; background: radial-gradient(110% 80% at 30% 14%, rgba(255,255,255,.5), transparent 45%); }
+  .ln .t { min-width: 0; }
+  .ln .n { display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; color: hsl(var(--h) 95% 74%); }
+  .ln .n span { font-weight: 500; color: var(--faint); }
+  .ln p { margin: 2px 0 0; font-size: 14.5px; line-height: 1.42; font-weight: 300; color: rgba(245,245,247,.78); }
+  .ln.cur { background: hsl(var(--h) 80% 60% / .12); box-shadow: inset 0 0 0 .5px hsl(var(--h) 90% 70% / .35); }
+  .ln.cur p { color: #fff; }
+  .ln.played p { color: rgba(245,245,247,.5); }
+  .writing { display: flex; gap: 5px; padding: 12px 20px; }
+  .writing i { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); animation: bounce 1.2s ease-in-out infinite; }
+  .writing i:nth-child(2) { animation-delay: .15s; } .writing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: none; opacity: .4; } 30% { transform: translateY(-5px); opacity: 1; } }
+  .sources { margin: 2px 10px 8px; padding: 10px 12px 12px; border-radius: 16px; background: rgba(255,255,255,.035); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.08); animation: lnIn .45s var(--ease); }
+  .sources h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); display: flex; gap: 8px; align-items: center; }
+  .sources h3 span { font-weight: 500; letter-spacing: 0; text-transform: none; }
+  .sources ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .sources a { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: center; color: rgba(245,245,247,.8); text-decoration: none; font-size: 13px; line-height: 1.3; animation: lnIn .45s var(--ease) backwards; }
+  .sources a:hover { color: #fff; }
+  .sources a img { width: 16px; height: 16px; border-radius: 4px; background: rgba(255,255,255,.1); }
+  .sources a span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sources a b { font-weight: 600; color: #fff; }
+  .sources.searching h3::after { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--dim); border-top-color: #fff; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 4px 2px; font-size: 13.5px; color: rgba(245,245,247,.8); }
+  .toggle i { width: 34px; height: 20px; border-radius: 999px; background: rgba(255,255,255,.14); position: relative; transition: background .25s; flex: none; }
+  .toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: transform .25s var(--ease); }
+  .toggle[aria-checked="true"] i { background: linear-gradient(100deg, #34c8ff, #ff5fc8); }
+  .toggle[aria-checked="true"] i::after { transform: translateX(14px); }
+  .past { padding: 4px 10px 0; display: flex; flex-direction: column; gap: 4px; }
+  .past h3 { margin: 6px 10px 4px; font-size: 13px; font-weight: 500; color: var(--faint); }
+  .pastrow { display: flex; align-items: center; gap: 6px; border-radius: 14px; }
+  .pastrow:hover { background: rgba(255,255,255,.04); }
+  .pastrow .open { flex: 1; min-width: 0; border: 0; background: none; text-align: left; padding: 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .pastrow .open b { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pastrow .open small { font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pastrow .del { border: 0; border-radius: 999px; padding: 6px 10px; margin-right: 6px; font-size: 12.5px; color: var(--faint); background: transparent; }
+  .pastrow .del:hover { color: #fff; background: rgba(255,255,255,.08); }
+  .pastrow .del.sure { color: #fff; background: #d8344f; }
+  .empty-note { padding: 8px 20px; font-size: 13.5px; color: var(--faint); line-height: 1.5; }
+
+  #toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); z-index: 9; transform: translate(-50%, 20px);
+           opacity: 0; pointer-events: none; padding: 11px 18px; border-radius: 999px; font-size: 14px; max-width: calc(100vw - 32px);
+           transition: opacity .3s, transform .4s var(--ease); background: rgba(20,20,30,.85); }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---- Phone ---- */
+  @media (max-width: 1100px) {
+    .hosts { min-height: 0; padding-top: 18px; }
+    .host { --size: clamp(104px, 30vw, 170px); }
+    .caption { min-height: 96px; }
+    .credits { display: none; }
+  }
+  @media (max-width: 520px) {
+    .stagebar { padding: 14px 16px 0; }
+    .ep { display: none; }
+    .wordmark { flex: 1; }
+    .deck { padding: 4px 14px 14px; }
+    .timeline { height: 24px; }
+    .compose { padding: 16px 14px 12px; }
+  }
+  @media (min-width: 1101px) and (max-height: 800px) {
+    .app { gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+    .host { --size: clamp(110px, min(15vw, 22vh), 200px); gap: 12px; }
+    .caption { min-height: 92px; }
+    .field { height: 62px; font-size: 17px; }
+    .compose { gap: 8px; padding-top: 14px; }
+  }
+  /* ---- Under the hood: three looks (Flow, Rack, HUD) over the same live data ---- */
+  .hoodctl { display: inline-flex; align-items: center; gap: 6px; }
+  .hoodseg { padding: 2px; }
+  .hoodseg > * { padding: 6px 11px; font-size: 12.5px; }
+  .hoodseg .x { padding: 6px 9px; }
+  .transport { flex-wrap: wrap; row-gap: 8px; }
+  #stage[data-hood] .credits { display: none; }
+  .hood-flow, .hood-rack, .hood-hud { --g1: #ffb36b; --g2: #8be04e; --g3: #5ad8ff; --g4: #ff5fc8; --g5: #b08cff; }
+  .nb { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; font-style: normal; white-space: nowrap; }
+  .nb.n0 { color: #cfe6ff; background: rgba(90,170,255,.18); box-shadow: inset 0 0 0 .5px rgba(120,190,255,.45); }
+  .nb.n1 { color: #ffd6f0; background: rgba(255,95,200,.16); box-shadow: inset 0 0 0 .5px rgba(255,140,220,.45); }
+  .nb.you { color: var(--dim); background: rgba(255,255,255,.07); }
+
+  /* Flow: the pipeline, left to right, under the stage bar */
+  .hood-flow { margin: 14px 18px 0; padding: 14px 14px 10px; border-radius: 22px; background: rgba(0,0,0,.28); box-shadow: var(--hair); animation: lnIn .5s var(--ease); }
+  .hf-row { display: flex; align-items: stretch; }
+  .hf-st { --c: 255,255,255; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 6px 9px; border-radius: 16px; text-align: center;
+           background: rgba(255,255,255,.035); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.08); transition: background .4s, box-shadow .4s, transform .4s var(--ease); }
+  .hf-st .orb { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; background: rgba(var(--c), .14); box-shadow: inset 0 0 0 .5px rgba(var(--c), .5); transition: box-shadow .4s; }
+  .hf-st b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .hf-st small { font-size: 11px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .hf-st .v { font-size: 11.5px; font-weight: 600; color: rgba(var(--c), .95); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-height: 1.3em; }
+  .hf-st.on { background: rgba(var(--c), .12); box-shadow: inset 0 0 0 1px rgba(var(--c), .55), 0 0 30px rgba(var(--c), .3); transform: translateY(-2px); }
+  .hf-st.on .orb { box-shadow: inset 0 0 0 1px rgba(var(--c), .8), 0 0 18px rgba(var(--c), .8); animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.12); } }
+  .hf-edge { --c: 255,255,255; flex: 0 0 clamp(14px, 2.4vw, 34px); position: relative; align-self: center; height: 2px; margin-top: -26px; background: rgba(255,255,255,.12); overflow: visible; }
+  .hf-edge.on { background: repeating-linear-gradient(90deg, rgba(var(--c), .95) 0 6px, transparent 6px 11px); background-size: 22px 2px; animation: dash .5s linear infinite; box-shadow: 0 0 10px rgba(var(--c), .7); }
+  @keyframes dash { to { background-position: 22px 0; } }
+  .hf-edge .pk { position: absolute; left: 0; top: -3px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px rgba(var(--c), 1), 0 0 3px #fff; animation: pk .55s var(--ease) forwards; }
+  @keyframes pk { from { left: 0; opacity: 1; } to { left: 100%; opacity: .2; } }
+  .hf-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .hf-foot span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hf-foot span:last-child { text-align: right; }
+  .hf-foot b { color: var(--dim); font-weight: 600; }
+  .hf-foot .link { flex: none; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,.05); transition: color .3s, box-shadow .3s; }
+  .hf-foot .link.on { color: #fff; box-shadow: 0 0 14px rgba(139,224,78,.5), inset 0 0 0 .5px rgba(139,224,78,.7); }
+
+  /* Rack: both machines as cards, in place of the caption */
+  .hood-rack.one { grid-template-columns: minmax(0, 1fr); }
+  .hood-rack { display: grid; grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr); gap: 0; margin: 4px 18px 6px; animation: lnIn .5s var(--ease); }
+  .rk-card { padding: 14px 16px 12px; border-radius: 20px; background: rgba(0,0,0,.3); box-shadow: var(--hair); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .rk-head { display: flex; align-items: baseline; gap: 8px; }
+  .rk-head b { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  .rk-head small { font-size: 11.5px; color: var(--faint); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .rk-head .dot { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); align-self: center; }
+  .rk-head .dot.ok { background: var(--ok); box-shadow: 0 0 10px rgba(94,224,138,.8); }
+  .rk-gpu { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: 10px; }
+  .rk-gpu .big { font-size: 30px; font-weight: 700; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .rk-gpu .big small { font-size: 14px; font-weight: 500; color: var(--dim); margin-left: 2px; }
+  .rk-gpu .lbl { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .12em; color: var(--faint); margin-top: 4px; }
+  .rk-gpu canvas { width: 100%; height: 38px; }
+  .rk-mem .bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: rgba(255,255,255,.06); }
+  .rk-mem .bar i { height: 100%; transition: flex-basis .6s var(--ease); flex: 0 0 0; }
+  .rk-mem .leg { margin-top: 6px; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rk-mem .leg b { color: var(--ok); font-weight: 600; }
+  .rk-models { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .rk-models li { --c: 255,255,255; display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 6px 8px; border-radius: 11px; transition: background .35s, box-shadow .35s; }
+  .rk-models li > i { width: 9px; height: 9px; border-radius: 3px; background: rgba(var(--c), .9); }
+  .rk-models li span { min-width: 0; display: flex; flex-direction: column; }
+  .rk-models li b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rk-models li small { font-size: 11px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rk-models li em { font-style: normal; font-size: 11px; font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rk-models li.on { background: rgba(var(--c), .13); box-shadow: inset 0 0 0 .5px rgba(var(--c), .6), 0 0 22px rgba(var(--c), .22); }
+  .rk-models li.on > i { box-shadow: 0 0 10px rgba(var(--c), 1); animation: pulse 1s ease-in-out infinite; }
+  .rk-models li.on em { color: rgba(var(--c), 1); }
+  .rk-models li.dim { opacity: .45; }
+  .rk-foot { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .rk-link { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; color: var(--faint); text-align: center; }
+  .rk-link .wire { width: 100%; height: 3px; border-radius: 3px; background: rgba(255,255,255,.12); }
+  .rk-link.on { color: #c9f5a6; }
+  .rk-link.on .wire { background: repeating-linear-gradient(90deg, #8be04e 0 7px, transparent 7px 12px); background-size: 24px 3px; animation: dash .4s linear infinite; box-shadow: 0 0 12px rgba(139,224,78,.7); }
+  #stage[data-hood="flow"] .host { --size: clamp(104px, min(13vw, 19vh), 200px); gap: 12px; }
+  #stage[data-hood="rack"] .caption { display: none; }
+  #stage[data-hood="rack"] .host { --size: clamp(96px, min(11vw, 16vh), 150px); gap: 10px; }
+  #stage[data-hood="rack"] .hosts { min-height: 0; }
+
+  /* HUD: telemetry rails at the edges, a ticker over the timeline, hosts stay center stage */
+  .hood-hud { position: absolute; inset: 58px 0 0 0; pointer-events: none; z-index: 2; font-family: ui-monospace, "SF Mono", Menlo, monospace; animation: fadeIn .5s; }
+  @keyframes fadeIn { from { opacity: 0; } }
+  .hud-br { position: absolute; width: 22px; height: 22px; border: 0 solid rgba(139,224,78,.55); }
+  .hud-br.tl { left: 14px; top: 0; border-width: 1.5px 0 0 1.5px; } .hud-br.tr { right: 14px; top: 0; border-width: 1.5px 1.5px 0 0; }
+  .hud-rail { position: absolute; top: 14px; width: 168px; display: flex; flex-direction: column; gap: 10px; font-size: 10.5px; color: rgba(200,255,170,.75); }
+  .hud-rail.l { left: 24px; } .hud-rail.r { right: 24px; text-align: right; align-items: flex-end; }
+  .hud-rail h4 { white-space: nowrap; margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; color: #c9f5a6; text-shadow: 0 0 8px rgba(139,224,78,.6); }
+  .hud-rail h4 span { color: rgba(200,255,170,.45); font-weight: 400; }
+  .hud-gauges { display: flex; gap: 12px; }
+  .hud-g { position: relative; width: 66px; height: 66px; }
+  .hud-g svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .hud-g circle { fill: none; stroke-width: 5; }
+  .hud-g .tr { stroke: rgba(139,224,78,.14); }
+  .hud-g .val { stroke: #8be04e; stroke-linecap: round; transition: stroke-dashoffset .6s var(--ease); filter: drop-shadow(0 0 4px rgba(139,224,78,.8)); }
+  .hud-g.gpu .val { stroke: #5ad8ff; filter: drop-shadow(0 0 4px rgba(90,216,255,.8)); }
+  .hud-g div { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+  .hud-g b { font-size: 14px; color: #fff; font-weight: 700; }
+  .hud-g small { font-size: 8.5px; letter-spacing: .14em; opacity: .7; }
+  .hud-ln { display: flex; gap: 6px; white-space: nowrap; max-width: 168px; overflow: hidden; }
+  .hud-ln .s { overflow: hidden; text-overflow: ellipsis; }
+  .hud-rail.r .hud-ln i { order: 3; }
+  .hud-ln i { font-style: normal; opacity: .35; }
+  .hud-ln.on { color: #fff; text-shadow: 0 0 8px rgba(139,224,78,.9); }
+  .hud-ln.on i { opacity: 1; color: #8be04e; animation: blink .6s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  .hud-ln.dim { display: none; }
+  .hud-tick { position: absolute; left: 20px; right: 20px; bottom: 112px; display: flex; gap: 14px; align-items: center; font-size: 11.5px; color: rgba(200,255,170,.7); }
+  .hud-tick .log { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .hud-tick .log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .45; }
+  .hud-tick .log div:last-child { opacity: 1; color: #fff; }
+  .hud-tick .log b { font-weight: 700; margin: 0 6px; }
+  .hud-tick .tok { flex: none; text-align: right; }
+  .hud-tick .tok b { display: block; font-size: 26px; color: #fff; text-shadow: 0 0 12px rgba(139,224,78,.7); font-variant-numeric: tabular-nums; }
+  .hud-scan { position: absolute; inset: -58px 0 0 0; background: repeating-linear-gradient(0deg, rgba(139,224,78,.035) 0 1px, transparent 1px 3px); mix-blend-mode: screen; }
+  #stage[data-hood="hud"] .hosts { padding-inline: 190px; }
+  #stage[data-hood="hud"] .host { --size: clamp(100px, min(12vw, 20vh), 170px); }
+  #stage[data-hood="hud"] .caption { padding-bottom: 64px; }
+  #stage[data-hood="hud"] .caption p { font-size: clamp(17px, 1.5vw, 22px); }
+
+  @media (max-width: 1100px) {
+    .hood-flow { margin: 12px 14px 0; padding: 10px 8px 8px; }
+    .hf-st small { display: none; }
+    .hf-edge { margin-top: -18px; }
+    #stage[data-hood="hud"] .hosts { padding: 150px 0 0; }
+    .hud-rail { width: auto; max-width: 46%; }
+    .hud-rail .hud-models { display: none; }
+    .hud-g { width: 52px; height: 52px; }
+    .hud-tick .log div:not(:last-child) { display: none; }
+  }
+  @media (max-width: 640px) {
+    .hood-rack { grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 4px 12px 6px; }
+    .rk-link { flex-direction: row; height: 18px; } .rk-link .wire { width: 40%; }
+    .hf-st { padding: 8px 2px 7px; gap: 3px; }
+    .hf-st b { font-size: 11px; }
+    .hf-st .v { font-size: 10.5px; }
+    .hf-st .orb { width: 24px; height: 24px; font-size: 12px; }
+    .nb { font-size: 9.5px; padding: 1px 5px; }
+    .hud-tick { display: none; }
+    .hf-foot span { display: none; }
+    .hf-foot { justify-content: center; }
+    .hf-st[data-k="topic"] .v { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i>
+  <svg><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#grain)"/></svg>
+</div>
+
+<div class="app">
+  <header>
+    <div class="brand"><div class="dotorb"></div><span>Spark Voice</span></div>
+    <nav class="seg glass" aria-label="Demos"><a href="/">Assistant</a><a href="/studio">Studio</a><a class="on" href="/podcast" aria-current="page">Podcast</a></nav>
+    <div id="health"><span class="dot"></span><span id="health-text">Connecting…</span></div>
+  </header>
+
+  <div class="grid">
+    <section class="glass" id="stage" aria-label="Spark Talk stage">
+      <div class="stagebar">
+        <div class="wordmark">Spark <b>Talk</b></div>
+        <div class="ep" id="ep"></div>
+        <div class="onair" aria-hidden="true">ON AIR<i>ON AIR</i></div>
+      </div>
+      <div class="hood-flow" id="hflow" role="region" aria-label="Under the hood: the pipeline" hidden></div>
+
+      <div class="hosts" id="hosts"></div>
+      <div class="hood-rack" id="hrack" role="region" aria-label="Under the hood: the machines" hidden></div>
+
+      <div class="caption" aria-live="polite"><p id="cap"></p></div>
+
+      <div class="deck">
+        <div class="timeline empty" id="timeline" aria-label="Episode timeline"></div>
+        <div class="transport">
+          <button class="round" id="play" aria-label="Play" disabled></button>
+          <button class="ghostbtn" id="restart" disabled title="From the top">↺ From the top</button>
+          <span class="clock" id="clock">0:00</span>
+          <button class="ghostbtn on" id="music" aria-pressed="true" title="Intro music and background bed">♫ Music</button>
+          <a class="ghostbtn" id="dl" hidden>⬇ Episode</a>
+          <span class="hoodctl"><button class="ghostbtn" id="hoodbtn" title="Show what each model and Spark is doing (H)">◎ Under the hood</button>
+            <span class="seg hoodseg glass" id="hoodseg" hidden><button data-s="flow" title="1">Flow</button><button data-s="rack" title="2">Rack</button><button data-s="hud" title="3">HUD</button><button class="x" id="hoodx" aria-label="Hide under the hood">✕</button></span></span>
+          <div class="credits" id="credits">Script <b id="cr-llm">–</b> · Voices <b id="cr-tts">–</b><br><span id="cr-stat"></span></div>
+        </div>
+      </div>
+      <div class="hood-hud" id="hhud" aria-hidden="true" hidden></div>
+    </section>
+
+    <aside class="glass" id="side" aria-label="Make an episode">
+      <div class="compose">
+        <div class="label"><span>What should they talk about?</span><span class="aside" id="count"></span></div>
+        <textarea class="field" id="topic" maxlength="600" placeholder="A topic, a question, or paste a short article…" aria-label="Topic"></textarea>
+        <div class="chips" id="ideas"></div>
+        <div class="row">
+          <div class="label" style="flex:none">Length</div>
+          <div class="seg len" id="len" role="radiogroup" aria-label="Episode length">
+            <button data-m="1" role="radio">1 min</button><button data-m="2" role="radio">2 min</button><button data-m="3" role="radio">3 min</button>
+          </div>
+          <button class="toggle" id="web" role="switch" title="Look the topic up on the web first, for current facts. Your topic is sent to search engines.">Use the web<i></i></button>
+        </div>
+        <div class="golo"><button id="go"><span id="go-label">Start the show</span><kbd>⌘↵</kbd></button></div>
+      </div>
+      <div class="scripthead"><div class="label">Script</div><span id="status"></span></div>
+      <div id="script" class="scrolly"></div>
+    </aside>
+  </div>
+</div>
+<div id="toast" class="glass" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const API = "/podcast/api";
+const PLAY = '<svg width="16" height="18" viewBox="0 0 14 16"><path d="M1.5 1.5v13l11.5-6.5z" fill="currentColor"/></svg>';
+const PAUSE = '<svg width="15" height="17" viewBox="0 0 14 16"><rect x="1" y="1" width="4.2" height="14" rx="1.2" fill="currentColor"/><rect x="8.8" y="1" width="4.2" height="14" rx="1.2" fill="currentColor"/></svg>';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("podcast." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("podcast." + k, JSON.stringify(v)); } catch {} },
+};
+const IDEAS = [
+  "Why do cats knock things off tables?",
+  "Is a hot dog a sandwich?",
+  "What a DGX Spark is, explained for my mom",
+  "The weirdest things ever found in the ocean",
+  "Should you say please to AI?",
+  "How coffee took over the world",
+  "Why airplane food tastes bland",
+  "The real story of the first computer bug",
+  "Are we living in a simulation?",
+  "Why do we get songs stuck in our heads?",
+];
+// On a computer the script scrolls inside its panel; on a phone the page stays on the stage.
+const desk = () => matchMedia("(min-width: 1101px) and (min-height: 640px)").matches;
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+let toastT;
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 3600); }
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    let msg = `Something went wrong (${r.status}).`;
+    try { const j = await r.json(); if (j.detail) msg = typeof j.detail === "string" ? j.detail : msg; } catch {}
+    throw new Error(msg);
+  }
+  return r;
+}
+
+// ---- Hosts -------------------------------------------------------------------
+let CONF = null;   // this setup, from /api/config
+const duo = () => `${HOSTS[0].name} and ${HOSTS[1].name}`;
+function onWhere() {
+  const n = CONF?.nodes.length || 1, m = CONF?.machine || "machine";
+  return n > 1 ? `On your ${n} ${m}s` : `On your ${m}`;
+}
+let HOSTS = [
+  { key: "THEO", name: "Theo", hue: 205, bio: "" },
+  { key: "MARA", name: "Mara", hue: 330, bio: "" },
+];
+const H = {};
+function buildHosts() {
+  const box = $("hosts"); box.innerHTML = "";
+  HOSTS.forEach((h, n) => {
+    const el = document.createElement("div");
+    el.className = "host"; el.style.setProperty("--h", h.hue);
+    el.innerHTML = `<div class="glow"></div>
+      <div class="rig"><canvas></canvas><div class="head"><div class="face">
+        <div class="eyes"><div class="eye"></div><div class="eye"></div></div>
+        <div class="blush l"></div><div class="blush r"></div><div class="mouth"></div></div></div></div>
+      <div class="plate"><b>${esc(h.name)}</b><small>${n ? "co-host" : "host"}</small><div class="bar"></div></div>`;
+    box.append(el);
+    H[h.key] = Object.assign(H[h.key] || {}, { ...h, side: n ? 1 : -1, el, rig: el.querySelector(".rig"), cv: el.querySelector("canvas"),
+      eyes: el.querySelector(".eyes"), eye: [...el.querySelectorAll(".eye")], mouth: el.querySelector(".mouth"),
+      amp: 0, blinkAt: performance.now() + 1000 + Math.random() * 3000, nodAt: 0 });
+  });
+}
+
+// ---- Audio --------------------------------------------------------------------
+let ctx, master, bed, bedGain, musicOn = store.get("music", true);
+function audio() {
+  if (ctx) return ctx;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createGain(); master.connect(ctx.destination);
+  for (const h of Object.values(H)) {
+    h.gain = ctx.createGain(); h.an = ctx.createAnalyser(); h.an.fftSize = 512; h.an.smoothingTimeConstant = .6;
+    h.gain.connect(h.an); h.an.connect(master);
+    h.td = new Uint8Array(h.an.fftSize); h.fd = new Uint8Array(h.an.frequencyBinCount);
+  }
+  bedGain = ctx.createGain(); bedGain.gain.value = 0; bedGain.connect(master);
+  return ctx;
+}
+// A soft pad under the conversation: three detuned voices through a slow-moving filter.
+function startBed() {
+  if (bed) return;
+  const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 700; f.Q.value = .4; f.connect(bedGain);
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = .05; lg.gain.value = 260; lfo.connect(lg); lg.connect(f.frequency); lfo.start();
+  const oscs = [130.81, 196.0, 246.94, 329.63].map((hz, i) => {
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = hz; o.detune.value = (i - 1.5) * 4;
+    g.gain.value = .25 / (i + 1); o.connect(g); g.connect(f); o.start(); return o;
+  });
+  bed = { f, lfo, oscs };
+}
+function bedLevel(talking) {
+  if (!bedGain) return;
+  const v = !musicOn ? 0 : talking ? .022 : .05;
+  bedGain.gain.setTargetAtTime(v, ctx.currentTime, .35);
+}
+// The show's sting: a rising pluck arpeggio over a swelling chord.
+function sting(outro = false) {
+  if (!musicOn) return 0;
+  const t0 = ctx.currentTime + .05, notes = outro ? [784, 659.3, 523.3, 392, 523.3] : [261.6, 329.6, 392, 493.9, 587.3, 784];
+  notes.forEach((hz, i) => {
+    const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + i * .13;
+    o.type = "triangle"; o.frequency.value = hz;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.16, t + .01); g.gain.exponentialRampToValueAtTime(.0008, t + 1.1);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + 1.2);
+  });
+  const chord = outro ? [261.6, 329.6, 392] : [261.6, 329.6, 392, 493.9];
+  chord.forEach((hz) => {
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = "sine"; o.frequency.value = hz;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.07, t0 + .9); g.gain.exponentialRampToValueAtTime(.0008, t0 + 2.8);
+    o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 3);
+  });
+  return 2.1;
+}
+
+// ---- Episode state ------------------------------------------------------------
+let ep = null;            // { id, title, topic, lines: [{i, speaker, text, buf, dur, state}], scriptDone, token }
+let play = { i: -1, src: null, start: 0, on: false, paused: false, waiting: false, timer: null, next: null };
+let token = 0, voicing = false, started = 0;
+const estDur = (L) => L.dur || Math.max(1.2, L.text.split(/\s+/).length / 2.7);
+
+function setStatus() {
+  if (!ep) { $("status").textContent = ""; return; }
+  const n = ep.lines.length, v = ep.lines.filter((l) => l.buf).length;
+  $("status").textContent = !ep.scriptDone ? `Writing · ${n} line${n === 1 ? "" : "s"}` : v < n ? `Voicing ${Math.min(n, v + 1)} of ${n}` : `${n} lines · ${fmt(ep.lines.reduce((a, l) => a + estDur(l), 0))}`;
+}
+function renderLine(L) {
+  const h = H[L.speaker];
+  const b = document.createElement("button");
+  b.className = "ln"; b.style.setProperty("--h", h.hue); b.dataset.i = L.i;
+  b.innerHTML = `<span class="av"></span><span class="t"><span class="n">${esc(h.name)}<span class="st"></span></span><p>${esc(L.text)}</p></span>`;
+  b.onclick = () => { if (L.buf) jump(L.i); };
+  const w = $("script").querySelector(".writing");
+  $("script").insertBefore(b, w || null);
+  L.row = b;
+  const s = document.createElement("button");
+  s.className = "s"; s.style.setProperty("--h", h.hue); s.style.flex = estDur(L); s.title = `${h.name}: ${L.text}`; s.setAttribute("aria-label", `Line ${L.i + 1}, ${h.name}`);
+  s.onclick = () => { if (L.buf) jump(L.i); };
+  $("timeline").append(s); $("timeline").classList.remove("empty");
+  L.seg = s;
+  if (desk() && play.on && L.i >= play.i - 1) b.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+function mark(L) {
+  L.seg.className = "s" + (L.err ? " err" : L.busy ? " voicing" : L.buf ? " ready" : "") + (L.i < play.i || (L.i === play.i && L.done) ? " played" : "") + (L.i === play.i ? " cur" : "");
+  L.seg.style.flex = estDur(L);
+  L.row.classList.toggle("cur", L.i === play.i);
+  L.row.classList.toggle("played", L.i < play.i);
+  L.row.querySelector(".st").textContent = L.err ? "couldn't voice this" : L.busy ? "voicing…" : "";
+}
+const markAll = () => ep?.lines.forEach(mark);
+
+// ---- Making a show ------------------------------------------------------------
+async function startShow(loadId) {
+  const topic = $("topic").value.trim();
+  if (!loadId && !topic) { $("topic").focus(); toast(`Give ${duo()} something to talk about.`); return; }
+  audio(); await ctx.resume().catch(() => {});
+  stopPlayback(); const my = ++token;
+  ep = { id: null, title: "", topic, lines: [], scriptDone: false };
+  $("script").innerHTML = '<div class="writing"><i></i><i></i><i></i></div>';
+  $("timeline").innerHTML = ""; $("timeline").classList.add("empty"); $("dl").hidden = true;
+  $("ep").innerHTML = ""; setStatus(); $("cr-stat").textContent = onWhere();
+  busy(true);
+  if (!desk()) $("stage").scrollIntoView({ block: "start", behavior: "smooth" });
+  started = performance.now();
+  live(true); startBed(); bedLevel(false);
+  caption(null, loadId ? "Cueing up the episode…" : `${duo()} are reading up on it…`);
+  const wait = sting();
+  play.on = true; play.i = 0; play.waiting = true;
+  setTimeout(() => { if (token === my && play.on && play.i === 0 && play.waiting && ep.lines[0]?.buf) playLine(0); }, wait * 1000);
+  play.introUntil = performance.now() + wait * 1000;
+  if (loadId) return loadEpisode(loadId, my);
+  try {
+    const r = await api("/script", { method: "POST", headers: { "content-type": "application/json" },
+                                     body: JSON.stringify({ topic, minutes: +store.get("len", 2), web: store.get("web", true) }) });
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
+    while (true) {
+      const { value, done } = await rd.read();
+      if (token !== my) { rd.cancel(); return; }
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let k;
+      while ((k = buf.indexOf("\n")) >= 0) { const ln = buf.slice(0, k); buf = buf.slice(k + 1); if (ln.trim()) onEvent(JSON.parse(ln), my); }
+    }
+  } catch (e) { if (token === my) failed(e.message); return; }
+  if (token !== my) return;
+  ep.scriptDone = true; $("script").querySelector(".writing")?.remove(); setStatus(); busy(false);
+  if (!ep.lines.length && !ep.error) failed("The script came back empty. Try another topic.");
+  if (play.on && play.i >= ep.lines.length) finish();
+}
+function onEvent(ev, my) {
+  if (ev.type === "episode") ep.id = ev.id;
+  else if (ev.type === "title") { ep.title = ev.title; $("ep").innerHTML = `<b>${esc(ev.title)}</b>`; document.title = `${ev.title} · Spark Talk`; }
+  else if (ev.type === "research") { showSources(null); caption(null, `${duo()} are reading the news on it…`); }
+  else if (ev.type === "sources") { showSources(ev.sources); }
+  else if (ev.type === "line") { addLine(ev); }
+  else if (ev.type === "error") { ep.error = true; failed(ev.error); }
+}
+function showSources(list, saved) {
+  let box = $("script").querySelector(".sources");
+  if (list && !list.length) { box?.remove(); return; }
+  if (!box) { box = document.createElement("div"); box.className = "sources"; $("script").prepend(box); }
+  box.classList.toggle("searching", !list);
+  box.innerHTML = !list ? "<h3>Searching the web</h3>" :
+    `<h3>Sources <span>${list.length} sites${saved ? "" : ", read just now"}</span></h3><ol>` + list.map((s, n) =>
+      `<li><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" style="animation-delay:${n * 60}ms"><img alt="" src="https://icons.duckduckgo.com/ip3/${esc(s.site)}.ico" onerror="this.style.visibility='hidden'"><span><b>${esc(s.site)}</b> · ${esc(s.title)}</span></a></li>`).join("") + "</ol>";
+}
+function addLine(ev) {
+  const L = { i: ev.i, speaker: ev.speaker in H ? ev.speaker : "THEO", text: ev.text };
+  ep.lines.push(L); renderLine(L); mark(L); setStatus(); voicer(token);
+}
+async function loadEpisode(id, my) {
+  try {
+    const e = await (await api(`/episodes/${id}`)).json();
+    if (token !== my) return;
+    ep.id = e.id; ep.title = e.title; ep.topic = e.topic; $("topic").value = e.topic; count();
+    $("ep").innerHTML = `<b>${esc(e.title || e.topic)}</b>`;
+    if (e.sources?.length) showSources(e.sources, true);
+    e.lines.forEach(addLine);
+    ep.scriptDone = true; $("script").querySelector(".writing")?.remove(); setStatus(); busy(false);
+  } catch (e) { failed(e.message); }
+}
+async function voicer(my) {
+  if (voicing) return;
+  voicing = true;
+  try {
+    while (token === my) {
+      const L = ep.lines.find((l) => !l.buf && !l.err);
+      if (!L) break;
+      L.busy = true; mark(L); setStatus();
+      try {
+        const r = await api("/voice", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ episode: ep.id, i: L.i }) });
+        const data = await r.arrayBuffer();
+        if (token !== my) return;
+        L.buf = await ctx.decodeAudioData(data); L.dur = L.buf.duration;
+        if (L.i === 0 && !ep.firstSound) {
+          ep.firstSound = (performance.now() - started) / 1000;
+          $("cr-stat").textContent = `First line ready in ${ep.firstSound.toFixed(1)} s · ${onWhere().toLowerCase()}`;
+        }
+      } catch (e) { L.err = e.message; if (L.i === 0) toast(e.message); }
+      L.busy = false; mark(L); setStatus(); clock();
+      if (play.on && play.waiting && play.i === L.i && performance.now() >= (play.introUntil || 0)) playLine(L.i);
+    }
+  } finally {
+    voicing = false;
+    if (token === my && ep.lines.some((l) => !l.buf && !l.err)) voicer(my);
+    else if (token === my && ep.scriptDone && ep.lines.length && ep.lines.every((l) => l.buf || l.err)) offerDownload();
+  }
+}
+function failed(msg) {
+  busy(false); live(false); play.on = false; setTalking(null); bedLevel(false); bedGain && bedGain.gain.setTargetAtTime(0, ctx.currentTime, .4);
+  $("script").querySelector(".writing")?.remove();
+  caption(null, msg, true); toast(msg); updateTransport();
+}
+
+// ---- Playback -----------------------------------------------------------------
+function playLine(i) {
+  clearTimeout(play.timer); stopSource();
+  play.i = i; play.on = true; markAll();
+  const L = ep.lines[i];
+  if (!L) {
+    if (ep.scriptDone) finish(); else { play.waiting = true; caption(null, "…"); }
+    return updateTransport();
+  }
+  if (L.err) return playLine(i + 1);
+  if (!L.buf) { play.waiting = true; setTalking(null); caption(null, `${H[L.speaker].name} is thinking…`); return updateTransport(); }
+  play.waiting = false;
+  const s = ctx.createBufferSource(); s.buffer = L.buf; s.connect(H[L.speaker].gain);
+  const t = ctx.currentTime + .03; s.start(t);
+  play.src = s; play.start = t; L.done = false;
+  setTalking(L.speaker); caption(L); bedLevel(true);
+  if (desk()) L.row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  s.onended = () => {
+    if (play.src !== s) return;
+    L.done = true; play.src = null; mark(L); setTalking(null); bedLevel(false);
+    const next = ep.lines[i + 1];
+    const quick = /[—-]$/.test(L.text) || (next && next.text.split(/\s+/).length <= 3);
+    const gap = quick ? 60 : 170 + Math.random() * 140;
+    play.timer = setTimeout(() => { if (play.paused) play.next = i + 1; else playLine(i + 1); }, gap);
+  };
+  updateTransport();
+}
+function stopSource() { if (play.src) { const s = play.src; play.src = null; try { s.onended = null; s.stop(); } catch {} } }
+function stopPlayback() { clearTimeout(play.timer); stopSource(); play = { i: -1, src: null, start: 0, on: false, paused: false, waiting: false, timer: null, next: null }; setTalking(null); if (ctx?.state === "suspended") ctx.resume(); }
+function jump(i) { audio(); if (play.paused) { play.paused = false; ctx.resume(); } live(true); startBed(); playLine(i); }
+function finish() {
+  play.on = false; play.i = ep.lines.length; markAll(); setTalking(null);
+  sting(true); bedGain && bedGain.gain.setTargetAtTime(0, ctx.currentTime + 1.5, .8);
+  setTimeout(() => { if (!play.on) live(false); }, 2600);
+  caption(null, "That's the show. Thanks for listening!");
+  updateTransport();
+}
+async function togglePlay() {
+  if (!ep || !ep.lines.length) return;
+  audio();
+  if (!play.on) { live(true); startBed(); bedLevel(false); return playLine(0); }
+  if (play.paused) { play.paused = false; await ctx.resume(); live(true); if (play.next != null) { const n = play.next; play.next = null; playLine(n); } }
+  else { play.paused = true; await ctx.suspend(); live(false); }
+  updateTransport();
+}
+function updateTransport() {
+  const has = !!(ep && ep.lines.some((l) => l.buf));
+  $("play").disabled = !has; $("restart").disabled = !has;
+  const showPause = play.on && !play.paused;
+  $("play").innerHTML = showPause ? PAUSE : PLAY; $("play").setAttribute("aria-label", showPause ? "Pause" : "Play");
+  clock();
+}
+function elapsed() {
+  if (!ep) return 0;
+  let t = 0;
+  for (const L of ep.lines) { if (L.i >= play.i) break; t += estDur(L) + .22; }
+  if (play.src && ctx) t += Math.max(0, ctx.currentTime - play.start);
+  return t;
+}
+function clock() {
+  if (!ep || !ep.lines.length) { $("clock").textContent = "0:00"; return; }
+  const total = ep.lines.reduce((a, L) => a + estDur(L) + .22, 0);
+  $("clock").textContent = `${fmt(Math.min(elapsed(), total))} / ${ep.scriptDone ? "" : "~"}${fmt(total)}`;
+}
+function live(on) { $("stage").classList.toggle("live", on); }
+function busy(on) { $("go").disabled = on; $("go").classList.toggle("busy", on); $("go-label").textContent = on ? "Writing the episode…" : "Start the show"; }
+
+// ---- Captions -----------------------------------------------------------------
+let capWords = [], capLine = null;
+function caption(L, msg, err) {
+  const p = $("cap"); capLine = L;
+  if (!L) {
+    capWords = []; p.classList.remove("long");
+    p.innerHTML = msg == null ? `<span class="idle"><b>Spark <em>Talk</em></b>Give ${esc(duo())} a topic. They write the episode, voice it, and go live in seconds.</span>`
+                              : `<span class="idle" ${err ? 'style="color:var(--warn)"' : ""}>${esc(msg)}</span>`;
+    return;
+  }
+  const h = H[L.speaker], words = L.text.split(/\s+/);
+  p.classList.toggle("long", words.length > 24);
+  p.innerHTML = `<span class="who" style="color:hsl(${h.hue} 95% 72%)">${esc(h.name)}</span>` + words.map((w) => `<span class="w">${esc(w)}</span>`).join(" ");
+  // word timings: proportional to word length, inside the voiced part of the clip
+  const weights = words.map((w) => w.length + 2), sum = weights.reduce((a, b) => a + b, 0), span = Math.max(.4, L.dur - .35);
+  let acc = .12;
+  capWords = [...p.querySelectorAll(".w")].map((el, k) => { const at = acc; acc += span * weights[k] / sum; return { el, at, on: false }; });
+}
+
+// ---- Animation loop: mouths, eyes, rings (transforms + one canvas per host) ----
+let talking = null;
+function setTalking(key) { talking = key; for (const h of Object.values(H)) h.el.classList.toggle("talking", h.key === key); }
+function frame(now) {
+  for (const h of Object.values(H)) {
+    let a = 0;
+    if (h.an && talking === h.key && play.src) {
+      h.an.getByteTimeDomainData(h.td);
+      let s = 0; for (let k = 0; k < h.td.length; k += 2) { const v = (h.td[k] - 128) / 128; s += v * v; }
+      a = Math.min(1, Math.sqrt(s / (h.td.length / 2)) * 4.2);
+    }
+    h.amp += (a - h.amp) * (a > h.amp ? .55 : .22);
+    const idle = Math.sin(now / 1300 + (h.side > 0 ? 1.7 : 0));
+    // head: gentle breathing, plus a lean and bounce with the voice; listeners nod now and then
+    let rot = h.side * -1.2 + idle * .8, y = idle * 3 - h.amp * 6, sc = 1 + h.amp * .045;
+    if (talking && talking !== h.key) {
+      if (now > h.nodAt + 2600 && Math.random() < .006) h.nodAt = now;
+      const n = now - h.nodAt; if (n < 700) y += Math.sin(n / 700 * Math.PI * 2) * 5;
+      rot += h.side * -3;
+    }
+    h.rig.style.transform = `translateY(${y.toFixed(2)}px) rotate(${rot.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
+    h.mouth.style.transform = `scaleX(${(1 + h.amp * .25).toFixed(3)}) scaleY(${(.16 + h.amp * .95).toFixed(3)})`;
+    // eyes look at whoever is talking, otherwise wander a little
+    const look = talking ? (talking === h.key ? 0 : -h.side) : Math.sin(now / 2900 + h.side) * .6;
+    let blink = 1;
+    if (now > h.blinkAt) { const b = now - h.blinkAt; blink = b < 140 ? Math.max(.08, Math.abs(1 - b / 70)) : 1; if (b >= 140) h.blinkAt = now + 2200 + Math.random() * 3800; }
+    h.eyes.style.transform = `translate(${(look * 9).toFixed(1)}%, ${(-h.amp * 4).toFixed(1)}%)`;
+    h.eye.forEach((e) => (e.style.transform = `scaleY(${blink.toFixed(2)})`));
+    ring(h);
+  }
+  if (capLine && play.src && ctx) {
+    const t = ctx.currentTime - play.start;
+    for (const w of capWords) if (!w.on && t >= w.at) { w.on = true; w.el.classList.add("on"); }
+  }
+  if (ep && play.on) clock();
+  const cur = ep && play.src && ep.lines[play.i];
+  if (cur && cur.dur) cur.seg.style.setProperty("--p", Math.min(1, (ctx.currentTime - play.start) / cur.dur).toFixed(3));
+  requestAnimationFrame(frame);
+}
+function ring(h) {
+  const cv = h.cv, size = cv.clientWidth;
+  if (!size) return;
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  if (cv.width !== Math.round(size * dpr)) { cv.width = cv.height = Math.round(size * dpr); }
+  const g = cv.getContext("2d");
+  if (h.amp < .01 && !h.ringDirty) return;
+  h.ringDirty = h.amp >= .01;
+  g.clearRect(0, 0, cv.width, cv.height);
+  if (!h.an || h.amp < .01) return;
+  h.an.getByteFrequencyData(h.fd);
+  const c = cv.width / 2, r0 = cv.width * .31, n = 72;
+  g.lineCap = "round"; g.lineWidth = Math.max(2, cv.width * .008);
+  for (let k = 0; k < n; k++) {
+    const bin = 2 + Math.floor((k < n / 2 ? k : n - k) * 1.4), v = h.fd[bin] / 255;
+    const len = cv.width * (.012 + v * .11 * (.4 + h.amp)), ang = (k / n) * Math.PI * 2 - Math.PI / 2;
+    g.strokeStyle = `hsla(${h.hue + v * 40}, 95%, ${62 + v * 18}%, ${.35 + v * .6})`;
+    g.beginPath(); g.moveTo(c + Math.cos(ang) * r0, c + Math.sin(ang) * r0); g.lineTo(c + Math.cos(ang) * (r0 + len), c + Math.sin(ang) * (r0 + len)); g.stroke();
+  }
+}
+
+// ---- Download: the whole episode as one WAV ------------------------------------
+async function offerDownload() {
+  const lines = ep.lines.filter((l) => l.buf);
+  if (!lines.length) return;
+  const rate = 44100, gap = .22, total = lines.reduce((a, l) => a + l.buf.duration + gap, .4);
+  const off = new OfflineAudioContext(1, Math.ceil(total * rate), rate);
+  let t = .2;
+  for (const l of lines) { const s = off.createBufferSource(); s.buffer = l.buf; s.connect(off.destination); s.start(t); t += l.buf.duration + gap; }
+  const out = (await off.startRendering()).getChannelData(0);
+  const wav = new DataView(new ArrayBuffer(44 + out.length * 2)), w = (o, s) => [...s].forEach((c, k) => wav.setUint8(o + k, c.charCodeAt(0)));
+  w(0, "RIFF"); wav.setUint32(4, 36 + out.length * 2, true); w(8, "WAVEfmt "); wav.setUint32(16, 16, true); wav.setUint16(20, 1, true); wav.setUint16(22, 1, true);
+  wav.setUint32(24, rate, true); wav.setUint32(28, rate * 2, true); wav.setUint16(32, 2, true); wav.setUint16(34, 16, true); w(36, "data"); wav.setUint32(40, out.length * 2, true);
+  for (let k = 0; k < out.length; k++) wav.setInt16(44 + k * 2, Math.max(-1, Math.min(1, out[k])) * 32767, true);
+  const a = $("dl"); if (a.href) URL.revokeObjectURL(a.href);
+  a.href = URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
+  a.download = `spark-talk-${(ep.title || "episode").toLowerCase().replace(/[^\w]+/g, "-").replace(/^-|-$/g, "")}.wav`;
+  a.hidden = false;
+}
+
+// ---- Past episodes --------------------------------------------------------------
+async function showPast() {
+  const box = $("script");
+  try {
+    const list = await (await api("/episodes")).json();
+    if (ep) return;
+    box.innerHTML = list.length ? `<div class="past"><h3>Past episodes</h3></div>` : `<p class="empty-note">Your episodes show up here. Pick a topic or tap an idea above, then hit Start the show.</p>`;
+    const past = box.querySelector(".past");
+    for (const e of list.slice(0, 8)) {
+      const row = document.createElement("div"); row.className = "pastrow";
+      row.innerHTML = `<button class="open"><b>${esc(e.title || e.topic)}</b><small>${esc(e.topic)} · ${e.lines} lines</small></button><button class="del" aria-label="Delete episode">Delete</button>`;
+      row.querySelector(".open").onclick = () => startShow(e.id);
+      const del = row.querySelector(".del");
+      del.onclick = async () => {
+        if (!del.classList.contains("sure")) { del.classList.add("sure"); del.textContent = "Delete?"; setTimeout(() => { del.classList.remove("sure"); del.textContent = "Delete"; }, 3000); return; }
+        try { await api(`/episodes/${e.id}`, { method: "DELETE" }); row.remove(); toast("Episode deleted"); } catch (err) { toast(err.message); }
+      };
+      past.append(row);
+    }
+  } catch { box.innerHTML = `<p class="empty-note">Your episodes show up here.</p>`; }
+}
+
+// ---- Composer ---------------------------------------------------------------------
+const topic = $("topic");
+function count() { const n = topic.value.length; $("count").textContent = n > 450 ? `${n} / 600` : ""; }
+function renderIdeas() {
+  const box = $("ideas"); box.innerHTML = "";
+  const pick = [...IDEAS].sort(() => Math.random() - .5).slice(0, 3);
+  for (const t of pick) { const c = document.createElement("button"); c.className = "chip"; c.textContent = t; c.onclick = () => { topic.value = t; count(); store.set("topic", t); }; box.append(c); }
+  const d = document.createElement("button"); d.className = "chip dice"; d.textContent = "🎲 Surprise me";
+  d.onclick = () => { topic.value = IDEAS[Math.floor(Math.random() * IDEAS.length)]; count(); store.set("topic", topic.value); renderIdeas(); };
+  box.append(d);
+}
+function setWeb(on) { store.set("web", on); $("web").setAttribute("aria-checked", on); }
+$("web").onclick = () => setWeb($("web").getAttribute("aria-checked") !== "true");
+setWeb(store.get("web", true));
+function setLen(m) { store.set("len", m); document.querySelectorAll("#len button").forEach((b) => { const on = +b.dataset.m === m; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); }); }
+document.querySelectorAll("#len button").forEach((b) => (b.onclick = () => setLen(+b.dataset.m)));
+topic.addEventListener("input", () => { count(); store.set("topic", topic.value); });
+$("go").onclick = () => startShow();
+addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (!$("go").disabled) startShow(); }
+  else if (e.key === " " && !/TEXTAREA|INPUT|BUTTON|A/.test(document.activeElement.tagName)) { e.preventDefault(); togglePlay(); }
+});
+$("play").onclick = togglePlay;
+$("restart").onclick = () => jump(0);
+function setMusic(on) {
+  musicOn = on; store.set("music", on);
+  $("music").classList.toggle("on", on); $("music").setAttribute("aria-pressed", on); $("music").textContent = on ? "♫ Music" : "♫ Music off";
+  if (ctx) bedLevel(!!talking);
+}
+$("music").onclick = () => setMusic(!musicOn);
+
+// ---- Under the hood: live stats from every machine, in three looks --------------------
+// Flow = the pipeline left to right, Rack = the machines as cards, HUD = telemetry overlay.
+// Built from /api/config, so it fits one machine or two and whatever models config.yaml names.
+const COLORS = { search: "255,179,107", write: "139,224,78", voice: "90,216,255", listen: "176,140,255" };
+let MODELS = {}, NODES = [];
+const HOOD_STYLES = ["flow", "rack", "hud"];
+const hood = { on: false, style: store.get("hood", "flow"), data: null, after: -1, events: [], last: {}, hist: [], timer: 0 };
+const hoodActive = (k) => (hood.data?.act?.[k] || 0) > 0 || performance.now() - (hood.last[k]?.at || -1e9) < 1200;
+const playing = () => !!(play.src && !play.paused);
+const gb = (x) => (x == null ? "–" : x >= 10 ? Math.round(x) : x.toFixed(1));
+const tagOf = (k) => (MODELS[k]?.name.split(" ")[0] || k).toUpperCase() + (k === "voice" ? "-TTS" : "");
+
+function hoodConfig(c) {
+  const roles = { search: "Web search", write: "Writes the script", voice: `Voices ${duo()}`, listen: "The assistant's ears" };
+  MODELS = {};
+  for (const k of ["search", "write", "voice", "listen"]) {
+    if (k === "search" && !c.search) continue;
+    const m = c.models[k];
+    MODELS[k] = { name: m.label, role: roles[k], spec: m.spec, node: m.node, c: COLORS[k] };
+  }
+  const names = c.nodes.length ? c.nodes : [c.machine];
+  NODES = names.map((name) => ({ name, models: [] }));
+  for (const k in MODELS) (NODES.find((n) => n.name === MODELS[k].node) || NODES[0]).models.push(k);
+  for (const k in MODELS) MODELS[k].n = NODES.findIndex((n) => n.models.includes(k));
+  hood.hist = NODES.map(() => []);
+  ["hflow", "hrack", "hhud"].forEach((id) => ($(id).innerHTML = ""));
+}
+
+function hoodSet(on, style) {
+  if (style) { hood.style = style; store.set("hood", style); }
+  hood.on = on;
+  const st = $("stage");
+  if (on) st.dataset.hood = hood.style; else delete st.dataset.hood;
+  $("hflow").hidden = !(on && hood.style === "flow");
+  $("hrack").hidden = !(on && hood.style === "rack");
+  $("hhud").hidden = !(on && hood.style === "hud");
+  $("hoodbtn").hidden = on; $("hoodseg").hidden = !on;
+  document.querySelectorAll("#hoodseg [data-s]").forEach((b) => { const sel = b.dataset.s === hood.style; b.classList.toggle("on", sel); b.setAttribute("aria-pressed", sel); });
+  clearInterval(hood.timer);
+  if (on) { hoodPoll(); hood.timer = setInterval(hoodPoll, 500); }
+}
+
+async function hoodPoll() {
+  try {
+    const j = await (await fetch(`/hood/api/state?after=${Math.max(0, hood.after)}`)).json();
+    const fresh = hood.after >= 0;   // the first answer is history: no animations for it
+    hood.data = j;
+    for (const e of j.events) {
+      hood.after = Math.max(hood.after, e.id);
+      e.at = fresh ? performance.now() : -1e9; e.clock = new Date(e.t * 1000);
+      hood.events.push(e); hood.last[e.kind] = e;
+      if (fresh) hoodPacket(e);
+    }
+    if (hood.after < 0) hood.after = 0;
+    hood.events = hood.events.slice(-30);
+    NODES.forEach((_, n) => { const x = j.nodes[n]; hood.hist[n].push(x?.ok ? x.util : 0); hood.hist[n] = hood.hist[n].slice(-60); });
+  } catch {}
+  if (hood.on && NODES.length) hoodRender();
+}
+
+function hoodRender() {
+  if (hood.style === "flow") flowRender(); else if (hood.style === "rack") rackRender(); else hudRender();
+}
+
+// What each model is doing, in a few words
+function status(k) {
+  const d = hood.data || {}, last = hood.last[k];
+  if (k === "search") return hoodActive(k) ? "searching…" : last?.sites ? `${last.sites.length} sources` : store.get("web", true) ? "ready" : "off";
+  if (k === "write") return hoodActive(k) ? (d.tok_s ? `${Math.round(d.tok_s)} tok/s` : "writing…") : ep?.lines.length ? `${ep.lines.length} lines` : "ready";
+  if (k === "voice") return hoodActive(k) ? "voicing…" : last?.ms ? `${(last.secs / (last.ms / 1000)).toFixed(1)}× real time` : "ready";
+  return hoodActive(k) ? "listening…" : "standing by";
+}
+const nodeLine = (n) => { const x = hood.data?.nodes?.[n]; return x?.ok ? `<b>${esc(NODES[n].name)}</b> · GPU ${Math.round(x.util)}% · ${gb(x.mem_used)} of ${gb(x.mem_total)} GB` : `<b>${esc(NODES[n].name)}</b> · no signal`; };
+
+// ---- Flow -----------------------------------------------------------------------------
+function stations() {
+  const s = [{ k: "topic", icon: "✎", t: "Topic", sub: "typed live", c: "255,255,255" }];
+  if (MODELS.search) s.push({ k: "search", icon: "⌕", t: "Search", sub: MODELS.search.name, n: MODELS.search.n, c: COLORS.search });
+  s.push({ k: "write", icon: "✦", t: "Script", sub: MODELS.write.name, n: MODELS.write.n, c: COLORS.write },
+         { k: "voice", icon: "◉", t: "Voices", sub: MODELS.voice.name, n: MODELS.voice.n, c: COLORS.voice },
+         { k: "air", icon: "♫", t: "On air", sub: duo(), c: "255,95,200" });
+  return s;
+}
+function flowBuild() {
+  const chip = (s) => s.n == null ? `<em class="nb you">You</em>` : `<em class="nb n${s.n}">${esc(NODES[s.n].name)}</em>`;
+  $("hflow").innerHTML = `<div class="hf-row">` + stations().map((s, n) =>
+    (n ? `<i class="hf-edge" data-to="${s.k}" style="--c:${s.c}"></i>` : "") +
+    `<div class="hf-st" data-k="${s.k}" style="--c:${s.c}"><span class="orb">${s.icon}</span><b>${s.t}</b><small>${esc(s.sub)}</small>${chip(s)}<span class="v"></span></div>`).join("") +
+    `</div><div class="hf-foot">` + (NODES.length > 1 ? `<span id="hf-n0"></span><em class="link" id="hf-link">⇄ 200 Gb/s link</em><span id="hf-n1"></span>` : `<span id="hf-n0" style="text-align:center"></span>`) + `</div>`;
+}
+function flowRender() {
+  const f = $("hflow");
+  if (!f.firstChild) flowBuild();
+  const on = { topic: !!(ep && !ep.scriptDone && !ep.lines.length && !hoodActive("search")), search: hoodActive("search"), write: hoodActive("write"), voice: hoodActive("voice"), air: playing() };
+  const val = {
+    topic: ep?.topic ? `“${ep.topic.length > 26 ? ep.topic.slice(0, 25) + "…" : ep.topic}”` : "waiting",
+    search: status("search"), write: status("write"), voice: status("voice"),
+    air: playing() && talking ? `${H[talking].name} · ${fmt(elapsed())}` : play.on && !play.paused ? "starting…" : ep?.lines.length ? "paused" : "–",
+  };
+  f.querySelectorAll(".hf-st").forEach((el) => { const k = el.dataset.k; el.classList.toggle("on", on[k]); el.querySelector(".v").textContent = val[k]; });
+  f.querySelectorAll(".hf-edge").forEach((el) => el.classList.toggle("on", !!on[el.dataset.to]));
+  NODES.forEach((_, n) => { if ($(`hf-n${n}`)) $(`hf-n${n}`).innerHTML = nodeLine(n); });
+  $("hf-link")?.classList.toggle("on", MODELS.write.n !== MODELS.voice.n || (on.write || on.voice));
+}
+function hoodPacket(e) {
+  if (!hood.on || hood.style !== "flow") return;
+  const to = { search: e.sites ? "write" : "search", write: "voice", voice: "air" }[e.kind];
+  const el = to && $("hflow").querySelector(`.hf-edge[data-to="${to}"]`);
+  if (!el) return;
+  const p = document.createElement("i"); p.className = "pk"; el.append(p); setTimeout(() => p.remove(), 600);
+}
+
+// ---- Rack -----------------------------------------------------------------------------
+function rackBuild() {
+  const card = (node, n) => `<div class="rk-card" data-n="${n}">
+      <div class="rk-head"><b>${esc(node.name)}</b><small>${node.models.length} model${node.models.length === 1 ? "" : "s"}</small><span class="dot"></span></div>
+      <div class="rk-gpu"><div><span class="big">–</span><span class="lbl">GPU</span></div><canvas></canvas></div>
+      <div class="rk-mem"><div class="bar">${node.models.filter((m) => m !== "search").map((m) => `<i data-m="${m}" style="background:rgba(${MODELS[m].c},.9)"></i>`).join("")}<i data-m="sys" style="background:rgba(255,255,255,.28)"></i></div><div class="leg"></div></div>
+      <ul class="rk-models">${node.models.map((m) => `<li data-m="${m}" style="--c:${MODELS[m].c}"><i></i><span><b>${esc(MODELS[m].name)}</b><small>${esc(MODELS[m].role)}${MODELS[m].spec ? " · " + esc(MODELS[m].spec) : ""}</small></span><em></em></li>`).join("")}</ul>
+      <div class="rk-foot"></div></div>`;
+  $("hrack").classList.toggle("one", NODES.length === 1);
+  $("hrack").innerHTML = NODES.map(card).join(`<div class="rk-link"><span>QSFP</span><i class="wire"></i><span>200 Gb/s</span></div>`);
+}
+function rackRender() {
+  const r = $("hrack"), d = hood.data;
+  if (!r.firstChild) rackBuild();
+  NODES.forEach((node, n) => {
+    const c = r.querySelector(`[data-n="${n}"]`), x = d?.nodes?.[n];
+    c.querySelector(".dot").classList.toggle("ok", !!x?.ok);
+    c.querySelector(".big").innerHTML = x?.ok ? `${Math.round(x.util)}<small>%</small>` : "–";
+    spark(c.querySelector("canvas"), hood.hist[n]);
+    let used = 0;
+    c.querySelectorAll(".bar i").forEach((seg) => {
+      const m = seg.dataset.m;
+      const g = !x?.ok ? 0 : m === "sys" ? Math.max(0, x.mem_used - used) : (d.gb?.[m] || 0);
+      if (m !== "sys") used += g;
+      seg.style.flexBasis = x?.ok ? `${(g / x.mem_total) * 100}%` : "0";
+      seg.title = m === "sys" ? `System and other apps · ${gb(g)} GB` : `${MODELS[m].name} · ${gb(g)} GB`;
+    });
+    c.querySelector(".leg").innerHTML = x?.ok ? `${gb(x.mem_used)} of ${gb(x.mem_total)} GB in use · <b>${gb(x.mem_total - x.mem_used)} GB free</b>` : "No signal from this machine";
+    c.querySelectorAll(".rk-models li").forEach((li) => {
+      const m = li.dataset.m, mem = d?.gb?.[m]; li.classList.toggle("on", hoodActive(m));
+      li.querySelector("em").textContent = status(m) + (mem && !hoodActive(m) ? ` · ${gb(mem)} GB` : "");
+    });
+    c.querySelector(".rk-foot").textContent = x?.ok ? `${x.power.toFixed(0)} W · ${Math.round(x.temp)} °C` : "";
+  });
+  r.querySelector(".rk-link")?.classList.toggle("on", hoodActive("write") || hoodActive("voice"));
+}
+function spark(cv, hist) {
+  const w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+  if (!w) return;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  if (hist.length < 2) return;
+  const pts = hist.map((v, n) => [w - (hist.length - 1 - n) * (w / 59), h - 2 - (v / 100) * (h - 4)]);
+  const grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, "rgba(90,216,255,.45)"); grad.addColorStop(1, "rgba(90,216,255,0)");
+  g.beginPath(); pts.forEach(([x, y], n) => (n ? g.lineTo(x, y) : g.moveTo(x, y))); g.lineTo(w, h); g.lineTo(pts[0][0], h); g.fillStyle = grad; g.fill();
+  g.beginPath(); pts.forEach(([x, y], n) => (n ? g.lineTo(x, y) : g.moveTo(x, y))); g.strokeStyle = "#5ad8ff"; g.lineWidth = 1.5; g.stroke();
+}
+
+// ---- HUD ------------------------------------------------------------------------------
+const RING = 2 * Math.PI * 28;
+function hudBuild() {
+  const gauge = (cls, label) => `<div class="hud-g ${cls}"><svg viewBox="0 0 66 66"><circle class="tr" cx="33" cy="33" r="28"/><circle class="val" cx="33" cy="33" r="28" stroke-dasharray="${RING}" stroke-dashoffset="${RING}"/></svg><div><b>–</b><small>${label}</small></div></div>`;
+  const rail = (node, n) => `<div class="hud-rail ${n ? "r" : "l"}" data-n="${n}"><h4>${esc(node.name.toUpperCase())}</h4>
+      <div class="hud-gauges">${gauge("mem", "MEM")}${gauge("gpu", "GPU")}</div><div class="hud-pw"></div>
+      <div class="hud-models">${node.models.map((m) => `<div class="hud-ln" data-m="${m}"><i>▮</i><span>${esc(MODELS[m].name.toUpperCase())}</span><span class="s"></span></div>`).join("")}</div></div>`;
+  $("hhud").innerHTML = `<div class="hud-scan"></div><i class="hud-br tl"></i><i class="hud-br tr"></i>${NODES.slice(0, 2).map(rail).join("")}
+    <div class="hud-tick"><div class="log"></div><div class="tok"><b>0</b>TOK/S · ${esc(tagOf("write"))}</div></div>`;
+}
+function hudRender() {
+  const u = $("hhud"), d = hood.data;
+  if (!u.firstChild) hudBuild();
+  NODES.slice(0, 2).forEach((node, n) => {
+    const r = u.querySelector(`[data-n="${n}"]`), x = d?.nodes?.[n];
+    const set = (cls, frac, text) => { const g = r.querySelector(`.hud-g.${cls}`); g.querySelector(".val").style.strokeDashoffset = RING * (1 - Math.min(1, frac)); g.querySelector("b").textContent = text; };
+    set("mem", x?.ok ? x.mem_used / x.mem_total : 0, x?.ok ? `${gb(x.mem_used)}G` : "–");
+    set("gpu", x?.ok ? x.util / 100 : 0, x?.ok ? `${Math.round(x.util)}%` : "–");
+    r.querySelector(".hud-pw").textContent = x?.ok ? `${x.power.toFixed(0)}W · ${Math.round(x.temp)}°C · ${gb(x.mem_total - x.mem_used)}G FREE` : "NO SIGNAL";
+    r.querySelectorAll(".hud-ln").forEach((ln) => { const m = ln.dataset.m; ln.classList.toggle("on", hoodActive(m)); ln.querySelector(".s").textContent = status(m).toUpperCase(); });
+  });
+  const t2 = (c) => c.toTimeString().slice(0, 8) + "." + String(c.getMilliseconds()).padStart(3, "0").slice(0, 1);
+  u.querySelector(".log").innerHTML = hood.events.slice(-3).map((e) =>
+    `<div>${t2(e.clock)}<b style="color:rgba(${COLORS[e.kind] || "255,255,255"},1)">${esc(tagOf(e.kind))}</b>${esc(e.text)}</div>`).join("") || "<div>AWAITING TOPIC…</div>";
+  u.querySelector(".tok b").textContent = Math.round(d?.tok_s || 0);
+}
+
+$("hoodbtn").onclick = () => hoodSet(true);
+document.querySelectorAll("#hoodseg [data-s]").forEach((b) => (b.onclick = () => hoodSet(true, b.dataset.s)));
+$("hoodx").onclick = () => hoodSet(false);
+// Presenter keys: H shows or hides it, 1 2 3 pick the look.
+addEventListener("keydown", (e) => {
+  if (/TEXTAREA|INPUT/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "h" || e.key === "H") hoodSet(!hood.on);
+  else if (hood.on && "123".includes(e.key) && e.key) hoodSet(true, HOOD_STYLES[+e.key - 1]);
+});
+
+// ---- Health -----------------------------------------------------------------------
+async function health() {
+  const h = $("health");
+  try {
+    const j = await (await api("/health")).json();
+    h.className = j.tts && j.llm ? "ok" : "bad";
+    $("health-text").textContent = !j.tts ? "Voice engine offline" : !j.llm ? "Script writer offline" : CONF?.badge || "On-device";
+  } catch { h.className = "bad"; $("health-text").textContent = "Podcast offline"; }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) health(); });
+
+(async () => {
+  try { CONF = await (await fetch("/api/config")).json(); HOSTS = CONF.hosts; } catch {}
+  if (CONF) {
+    $("cr-llm").textContent = CONF.models.write.label; $("cr-tts").textContent = CONF.models.voice.label; $("cr-stat").textContent = onWhere();
+    if (!CONF.search) { $("web").hidden = true; store.set("web", false); }
+    hoodConfig(CONF);
+  }
+  buildHosts(); caption(null); renderIdeas(); setLen(store.get("len", 2)); setMusic(musicOn);
+  topic.value = store.get("topic", ""); count(); updateTransport();
+  showPast(); health(); setInterval(health, 20000);
+  requestAnimationFrame(frame);
+  const q = new URLSearchParams(location.search).get("hood");
+  if (q) hoodSet(true, HOOD_STYLES.includes(q) ? q : null);
+})();
+</script>
+</body>
+</html>

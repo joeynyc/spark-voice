@@ -1,0 +1,14 @@
+# SearXNG for the podcast's research step: JSON results on, no rate limiter (it's only reachable locally).
+use_default_settings: true
+server:
+  limiter: false
+  image_proxy: false
+search:
+  formats: [html, json]
+  safe_search: 0
+  autocomplete: ""
+general:
+  instance_name: Spark Voice search
+engines:
+  - name: bing
+    disabled: false

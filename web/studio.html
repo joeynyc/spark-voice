@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04050a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Voice Studio">
+<title>Voice Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cdefs%3E%3ClinearGradient id=%27g%27 x1=%270%27 y1=%270%27 x2=%271%27 y2=%271%27%3E%3Cstop offset=%270%27 stop-color=%27%235ad8ff%27/%3E%3Cstop offset=%27.5%27 stop-color=%27%237a6bff%27/%3E%3Cstop offset=%271%27 stop-color=%27%23ff5fc8%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2715%27 fill=%27url(%23g)%27/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="/icon.png">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #04050a; --ink: #f5f5f7; --dim: rgba(245,245,247,.62); --faint: rgba(245,245,247,.36);
+    --c1: #5ad8ff; --c2: #7a6bff; --c3: #ff5fc8; --c4: #ffb36b;
+    --ok: #5ee08a; --warn: #ffb36b;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+    --glass: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    --rim: inset 0 0 0 .5px rgba(255,255,255,.2), inset 1.5px 1.5px 1px -1px rgba(255,255,255,.6),
+           inset -1px -1px 1px -1px rgba(255,255,255,.25);
+    --well: rgba(0,0,0,.3);
+    --hair: inset 0 0 0 .5px rgba(255,255,255,.13);
+    --ease: cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; cursor: pointer; }
+  :focus-visible { outline: 2px solid rgba(255,255,255,.6); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .scrolly { scrollbar-width: none; }
+  .scrolly::-webkit-scrollbar { display: none; }
+
+  /* ---- Backdrop ---- */
+  .bg { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .bg i { position: absolute; border-radius: 50%; filter: blur(50px); }
+  .bg .b1 { width: 1000px; height: 700px; left: 22%; top: 30%; transform: translate(-50%, -50%);
+            background: radial-gradient(closest-side, rgba(92,84,255,.18), transparent); }
+  .bg .b2 { width: 800px; height: 640px; left: 55%; top: 40%; background: radial-gradient(closest-side, rgba(255,90,200,.09), transparent); }
+  .bg .b3 { width: 700px; height: 520px; left: -8%; top: 62%; background: radial-gradient(closest-side, rgba(40,190,255,.09), transparent); }
+  .bg svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .07; mix-blend-mode: overlay; }
+  .glass { background: var(--glass); backdrop-filter: blur(16px) saturate(170%); -webkit-backdrop-filter: blur(16px) saturate(170%);
+           box-shadow: var(--rim), 0 1px 1px rgba(0,0,0,.4), 0 24px 60px rgba(0,0,0,.45); }
+
+  /* ---- Frame: one screen on a computer, a normal scrolling page on a phone ---- */
+  .app { position: relative; z-index: 1; max-width: 1380px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;
+         padding: max(18px, env(safe-area-inset-top)) max(clamp(16px, 2.6vw, 36px), env(safe-area-inset-right))
+                  max(20px, env(safe-area-inset-bottom)) max(clamp(16px, 2.6vw, 36px), env(safe-area-inset-left)); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr); gap: 18px; }
+  @media (min-width: 1101px) and (min-height: 620px) {
+    body { overflow: hidden; }
+    .app { height: 100vh; height: 100dvh; }
+    .grid { flex: 1; min-height: 0; }
+    #maker, #takes-col { min-height: 0; }
+    #maker .body { flex: 1; min-height: 0; overflow-y: auto; }
+    #takes { flex: 1; min-height: 0; overflow-y: auto; }
+    /* spare height goes to the two text boxes, not to a gap under the controls */
+    #desc, #line { flex: 1 0 auto; }
+    #maker .body > .block:has(#desc), #maker .body > .block:has(#line) { flex: 1 0 auto; }
+  }
+  @media (min-width: 1101px) and (max-height: 780px) {
+    .app { gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+    #maker .body { gap: 10px; }
+    .label { padding-top: 6px; }
+    #desc { height: 54px; font-size: 17px; }
+    #line { height: 48px; }
+    .chip { padding: 5px 10px; font-size: 13px; }
+    .recorder { padding: 9px 12px; }
+    #rec { width: 56px; height: 56px; }
+    .gobar { padding-top: 10px; padding-bottom: 12px; }
+    #go { height: 46px; }
+  }
+  @media (max-width: 1100px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---- Header ---- */
+  header { display: flex; align-items: center; gap: 14px; min-height: 40px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; }
+  .seg > * { border: 0; background: transparent; border-radius: 999px; padding: 7px 14px; font-size: 13.5px; font-weight: 500;
+             color: var(--dim); text-decoration: none; white-space: nowrap; transition: color .2s, background .3s var(--ease); }
+  .seg > *:hover { color: var(--ink); }
+  .seg > .on { color: #0a0a12; background: linear-gradient(180deg, #fff, #e4e4ee); box-shadow: 0 3px 10px rgba(0,0,0,.3); }
+  #health { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); white-space: nowrap; }
+  #health .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  #health.ok .dot { background: var(--ok); box-shadow: 0 0 10px rgba(94,224,138,.8); }
+  #health.bad { color: var(--warn); }
+  #health.bad .dot { background: var(--warn); }
+
+  /* ---- Maker panel ---- */
+  #maker { border-radius: 28px; display: flex; flex-direction: column; overflow: hidden; }
+  #maker .top { padding: 16px 18px 0; }
+  .modes { display: flex; width: 100%; background: var(--well); box-shadow: var(--hair); }
+  .modes > * { flex: 1; padding: 9px 8px; font-size: 14.5px; }
+  #maker .body { padding: 4px 18px 16px; display: flex; flex-direction: column; gap: 16px; }
+  .block { display: flex; flex-direction: column; gap: 8px; }
+  .label { display: flex; align-items: baseline; gap: 10px; padding-top: 12px; font-size: 11px; font-weight: 600; letter-spacing: .14em;
+           text-transform: uppercase; color: var(--faint); }
+  .label .aside { margin-left: auto; letter-spacing: .02em; text-transform: none; font-weight: 500; font-size: 12px; white-space: nowrap; }
+
+  /* fields stay 16px+ so iOS doesn't zoom */
+  .field { width: 100%; display: block; border: 0; outline: none; resize: none; border-radius: 16px; padding: 12px 14px;
+           background: var(--well); box-shadow: var(--hair); color: var(--ink); font-size: 16px; line-height: 1.42; transition: box-shadow .25s; }
+  .field:focus { box-shadow: inset 0 0 0 1px rgba(255,255,255,.32), 0 0 0 4px rgba(122,107,255,.14); }
+  .field::placeholder { color: rgba(245,245,247,.3); }
+  #desc { font-size: 19px; font-weight: 300; letter-spacing: -.015em; height: 82px; }
+  #line { height: 76px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 0; border-radius: 999px; padding: 6px 11px; font-size: 13.5px; line-height: 1.35; color: rgba(245,245,247,.85);
+          background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.14);
+          transition: transform .15s var(--ease), background .2s, color .2s; white-space: nowrap; }
+  .chip:hover { background: rgba(255,255,255,.11); color: #fff; }
+  .chip:active { transform: scale(.95); }
+  .chip.on { background: rgba(255,255,255,.92); color: #0a0a12; box-shadow: none; }
+  .chip.dice { background: linear-gradient(100deg, rgba(90,216,255,.22), rgba(255,95,200,.22)); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.3); color: #fff; }
+
+  /* mood: emotions, then speed / pitch / language on one line */
+  .mood { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .mood .seg { background: var(--well); box-shadow: var(--hair); }
+  .mood .seg > * { padding: 5px 11px; font-size: 13px; }
+  .pick { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--faint); }
+  select.field { width: auto; padding: 5px 30px 5px 12px; border-radius: 999px; font-size: 16px; appearance: none; -webkit-appearance: none;
+                 background: var(--well) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center; }
+
+  /* ---- Clone ---- */
+  .recorder { display: flex; align-items: center; gap: 16px; padding: 12px 14px; border-radius: 20px; background: var(--well); box-shadow: var(--hair); }
+  #rec { position: relative; width: 66px; height: 66px; flex: none; border: 0; padding: 0; border-radius: 50%; background: none; }
+  #rec svg.ring { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); transform: rotate(-90deg); }
+  #rec .ring circle { fill: none; stroke-width: 3.5; }
+  #rec .ring .track { stroke: rgba(255,255,255,.1); }
+  #rec .ring .fill { stroke: url(#ringGrad); stroke-linecap: round; stroke-dasharray: 320; stroke-dashoffset: 320; transition: stroke-dashoffset .1s linear; }
+  #rec .ball { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: #0b0b18; will-change: transform; transition: transform .08s linear; }
+  #rec .ball::before { content: ""; position: absolute; inset: -25%; background: conic-gradient(var(--c1), var(--c2), var(--c3), var(--c4), var(--c1));
+                       filter: blur(10px); opacity: .55; animation: spin 10s linear infinite; }
+  #rec.live .ball::before { opacity: 1; animation-duration: 3s; }
+  #rec .ball::after { content: ""; position: absolute; inset: 0; border-radius: 50%;
+                      background: radial-gradient(120% 90% at 30% 18%, rgba(255,255,255,.4), transparent 40%);
+                      box-shadow: inset 0 0 0 .5px rgba(255,255,255,.45), inset 2px 3px 2px -2px rgba(255,255,255,.9); }
+  #rec .glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+  #rec .glyph i { width: 18px; height: 18px; border-radius: 5px; background: #fff; display: none; }
+  #rec.live .glyph svg { display: none; }
+  #rec.live .glyph i { display: block; }
+  .rec-copy { min-width: 0; flex: 1; }
+  .rec-copy .t { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  #rec.live + .rec-copy .t { color: #ff8fb0; }
+  .rec-copy .read { margin-top: 4px; font-size: 17px; line-height: 1.38; font-weight: 300; letter-spacing: -.01em; }
+  .rec-copy .links { margin-top: 6px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .recorder.has-ref .read, .recorder.has-ref .links .new { display: none; }
+  .link { border: 0; background: none; padding: 0; color: var(--dim); text-decoration: underline; text-underline-offset: 3px;
+          text-decoration-color: rgba(255,255,255,.25); font-size: 13px; }
+  .link:hover { color: #fff; }
+  .refcard { display: flex; flex-direction: column; gap: 8px; }
+  .refcard .row { display: flex; align-items: center; gap: 10px; }
+  .refcard canvas { flex: 1; min-width: 0; height: 34px; cursor: pointer; }
+  .refcard .play { width: 36px; height: 36px; }
+  .refcard textarea { height: 66px; }
+  .refcard .save { display: flex; gap: 8px; }
+  .refcard .save input { flex: 1; min-width: 0; padding: 9px 14px; border-radius: 999px; }
+
+  /* ---- Cast ---- */
+  .cast { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+  .vcard { position: relative; text-align: left; border: 0; border-radius: 16px; padding: 9px 10px; background: rgba(255,255,255,.05);
+           box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12); display: flex; align-items: center; gap: 10px; min-width: 0;
+           transition: transform .2s var(--ease), background .2s, box-shadow .2s; }
+  .vcard:hover { background: rgba(255,255,255,.09); }
+  .vcard:active { transform: scale(.97); }
+  .vcard.on { background: rgba(255,255,255,.12); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.75); }
+  .vcard .orb { width: 34px; height: 34px; font-size: 16px; }
+  .vcard > div:last-of-type { min-width: 0; }
+  .vcard .n { font-size: 14px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vcard .d { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vcard .x { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+              justify-content: center; background: #2a2a36; color: var(--dim); font-size: 14px; line-height: 1; opacity: 0;
+              box-shadow: inset 0 0 0 .5px rgba(255,255,255,.2); transition: opacity .2s; }
+  .vcard:hover .x, .vcard.on .x { opacity: 1; }
+  @media (pointer: coarse) { .vcard .x { opacity: .85; } }
+  .vcard .x:hover { color: #fff; background: #c2334f; }
+  .castnote { font-size: 13px; color: var(--faint); }
+
+  /* ---- Go (pinned to the bottom of the panel) ---- */
+  .gobar { padding: 12px 18px 16px; border-top: .5px solid rgba(255,255,255,.08); background: linear-gradient(180deg, transparent, rgba(0,0,0,.18)); }
+  .golo { position: relative; }
+  .golo::before { content: ""; position: absolute; inset: -6px 10%; border-radius: 999px; filter: blur(20px); opacity: .5;
+                  background: linear-gradient(100deg, var(--c1), var(--c2), var(--c3), var(--c4)); transition: opacity .4s; }
+  .golo:has(#go:disabled)::before { opacity: .2; }
+  #go { position: relative; width: 100%; height: 50px; border: 0; border-radius: 999px; font-size: 16.5px; font-weight: 600; letter-spacing: -.01em;
+        color: #0a0a12; background: linear-gradient(180deg, #fff, #e6e4f0); overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 9px;
+        box-shadow: inset 0 -1px 0 rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.4); transition: transform .15s var(--ease); }
+  #go:hover { transform: translateY(-1px); }
+  #go:active { transform: scale(.98); }
+  #go:disabled { cursor: default; transform: none; color: rgba(10,10,18,.6); }
+  #go kbd { position: absolute; right: 16px; font: 500 12px var(--sans); color: rgba(10,10,18,.4); }
+  @media (pointer: coarse) { #go kbd { display: none; } }
+  #go.busy::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(122,107,255,.35), transparent);
+                    animation: sweep 1.2s var(--ease) infinite; }
+  @keyframes sweep { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+
+  /* ---- Takes ---- */
+  #takes-col { display: flex; flex-direction: column; }
+  .takes-head { display: flex; align-items: baseline; justify-content: space-between; padding: 6px 8px 10px; }
+  .takes-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  .takes-head span { font-size: 12px; color: var(--faint); }
+  #takes { display: flex; flex-direction: column; gap: 12px; padding: 2px 4px 20px; margin: 0 -4px; }
+
+  /* the empty column doubles as the title card */
+  .empty { flex: 1; min-height: 340px; border-radius: 28px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+           text-align: center; padding: 28px; border: 1px dashed rgba(255,255,255,.1); }
+  .empty .big { width: 120px; height: 120px; margin-bottom: 26px; font-size: 0; }
+  .empty .big::before { filter: blur(16px); animation-duration: 16s; }
+  .empty h1 { margin: 0; font-size: clamp(38px, 4vw, 56px); font-weight: 300; letter-spacing: -.04em; line-height: 1; }
+  .empty h1 em, .mhero h1 em { font-style: normal; background: linear-gradient(100deg, var(--c1), var(--c2) 35%, var(--c3) 70%, var(--c4));
+                -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .empty p { margin: 14px 0 0; max-width: 360px; font-size: 15px; line-height: 1.5; color: var(--dim); }
+  .empty ol { margin: 22px 0 0; padding: 0; list-style: none; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .empty li { font-size: 12.5px; color: var(--faint); padding: 6px 11px; border-radius: 999px; background: rgba(255,255,255,.04); box-shadow: var(--hair); }
+  .mhero { display: none; }
+
+  .orb { --h: 260; position: relative; width: 40px; height: 40px; flex: none; border-radius: 50%; overflow: hidden; background: #0b0b18;
+         display: flex; align-items: center; justify-content: center; font-size: 18px; will-change: transform; }
+  /* spins by transform only: repainting blurred gradients stalls iOS Safari */
+  .orb::before { content: ""; position: absolute; inset: -30%;
+                 background: conic-gradient(hsl(var(--h) 95% 64%), hsl(calc(var(--h) + 55) 95% 62%), hsl(calc(var(--h) + 150) 90% 66%), hsl(var(--h) 95% 64%));
+                 filter: blur(7px); animation: spin 12s linear infinite; }
+  .orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%;
+                background: radial-gradient(120% 90% at 30% 18%, rgba(255,255,255,.42), transparent 42%);
+                box-shadow: inset 0 0 0 .5px rgba(255,255,255,.45), inset 1px 2px 1px -1px rgba(255,255,255,.9); }
+  .orb span { position: relative; z-index: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+  .playing .orb::before { animation-duration: 2.4s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .take { border-radius: 22px; padding: 13px 14px 11px; animation: takeIn .6s var(--ease); flex: none; }
+  @keyframes takeIn { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+  .take .top { display: flex; gap: 11px; align-items: center; }
+  .take .who { min-width: 0; flex: 1; }
+  .take .who b { display: block; font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .take .who small { display: block; margin-top: 1px; font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .take .said { margin: 9px 1px 0; font-size: 14.5px; line-height: 1.42; color: rgba(245,245,247,.82); font-weight: 300;
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .player { display: flex; align-items: center; gap: 11px; margin-top: 9px; }
+  .play { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: #fff; color: #0a0a12;
+          display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 14px rgba(0,0,0,.35); transition: transform .15s; }
+  .play:active { transform: scale(.92); }
+  .player canvas { flex: 1; min-width: 0; height: 40px; cursor: pointer; }
+  .player .time { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; min-width: 32px; text-align: right; }
+  .take .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 9px; }
+  .take .acts .stat { margin-left: auto; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .act { border: 0; border-radius: 999px; padding: 6px 11px; font-size: 13px; color: var(--dim); background: rgba(255,255,255,.06);
+         box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .act:hover { color: #fff; background: rgba(255,255,255,.1); }
+  .act.keep { color: #fff; background: linear-gradient(100deg, rgba(90,216,255,.2), rgba(255,95,200,.2)); }
+  .act.kept { color: var(--ok); background: rgba(94,224,138,.1); }
+  .keeprow { display: flex; gap: 8px; margin-top: 9px; }
+  .keeprow input { flex: 1; min-width: 0; padding: 8px 14px; border-radius: 999px; }
+  .btn { border: 0; border-radius: 999px; padding: 8px 15px; font-size: 14px; font-weight: 600; color: #0a0a12;
+         background: linear-gradient(180deg, #fff, #e4e4ee); white-space: nowrap; }
+  .btn.ghost { color: var(--ink); font-weight: 500; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.16); }
+  .take.pending .shimmer { position: relative; height: 40px; flex: 1; border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.04); }
+  .take.pending .shimmer::after { content: ""; position: absolute; inset: 0; width: 50%;
+       background: linear-gradient(90deg, transparent, hsl(var(--h) 90% 66% / .35), transparent); animation: sweep 1.5s ease-in-out infinite; }
+  .take.pending .orb::before { animation-duration: 1.6s; }
+  .take.err { box-shadow: var(--rim), inset 0 0 0 1px rgba(255,120,120,.35); }
+  .take.err .said { color: #ffb4b4; -webkit-line-clamp: 4; }
+
+  #toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); z-index: 9; transform: translate(-50%, 20px);
+           opacity: 0; pointer-events: none; padding: 11px 18px; border-radius: 999px; font-size: 14px; max-width: calc(100vw - 32px);
+           transition: opacity .3s, transform .4s var(--ease); background: rgba(20,20,30,.85); }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---- Phone ---- */
+  @media (max-width: 1100px) {
+    #maker { overflow: visible; }
+    .mhero { display: block; padding: 6px 2px 2px; }
+    .mhero h1 { margin: 0; font-size: 34px; font-weight: 300; letter-spacing: -.035em; line-height: 1.05; }
+    .mhero p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--dim); }
+    .empty { min-height: 0; padding: 26px 20px; }
+    .empty .big, .empty h1, .empty ol { display: none; }
+    .empty p { margin: 0; }
+    /* the button rides along at the bottom of the screen while you scroll the controls */
+    .gobar { position: sticky; bottom: 0; z-index: 2; padding-bottom: max(14px, env(safe-area-inset-bottom)); border-radius: 0 0 24px 24px;
+             background: linear-gradient(180deg, rgba(8,8,16,0), rgba(8,8,16,.82) 30%); }
+  }
+  @media (max-width: 640px) {
+    .brand span { display: none; }
+    #health #health-text { display: none; }
+    #maker { border-radius: 24px; }
+    #maker .top { padding: 12px 12px 0; }
+    #maker .body { padding: 2px 14px 14px; }
+    .gobar { padding-left: 14px; padding-right: 14px; }
+    .modes > * { font-size: 14px; padding: 9px 4px; }
+    .cast { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .label .aside .est { display: none; }
+    .recorder { gap: 14px; }
+    .rec-copy .read { font-size: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .orb::before, #rec .ball::before { animation-duration: 40s; } }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i>
+  <svg><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#grain)"/></svg>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5ad8ff"/><stop offset=".5" stop-color="#7a6bff"/><stop offset="1" stop-color="#ff5fc8"/></linearGradient>
+</defs></svg>
+
+<div class="app">
+  <header>
+    <div class="brand"><div class="orb" style="--h:230;width:20px;height:20px"></div><span>Spark Voice</span></div>
+    <nav class="seg glass" aria-label="Demos"><a id="nav-assistant" href="/">Assistant</a><a class="on" href="/studio" aria-current="page">Studio</a><a href="/podcast">Podcast</a></nav>
+    <div id="health"><span class="dot"></span><span id="health-text">Connecting…</span></div>
+  </header>
+
+  <section class="mhero"><h1>Make a <em>voice.</em></h1><p>Describe one, clone one, or pick from the cast. Made on-device.</p></section>
+
+  <div class="grid">
+    <section class="glass" id="maker" aria-label="Voice maker">
+      <div class="top">
+        <div class="seg modes" role="tablist">
+          <button role="tab" data-mode="describe" class="on">✨ Describe</button>
+          <button role="tab" data-mode="clone">🎙️ Clone</button>
+          <button role="tab" data-mode="voice">🎭 Cast</button>
+        </div>
+      </div>
+
+      <div class="body scrolly">
+        <!-- the voice -->
+        <div class="block" data-pane="describe">
+          <div class="label">The voice</div>
+          <textarea id="desc" class="field" maxlength="400" aria-label="Describe the voice"></textarea>
+          <div class="chips" id="ideas"></div>
+        </div>
+
+        <div class="block" data-pane="clone" hidden>
+          <div class="label">The voice <span class="aside">5–10 seconds is plenty</span></div>
+          <div class="recorder" id="recorder">
+            <button id="rec" aria-label="Record">
+              <svg class="ring" viewBox="0 0 110 110"><circle class="track" cx="55" cy="55" r="51"/><circle class="fill" id="ring" cx="55" cy="55" r="51"/></svg>
+              <span class="ball" id="ball"></span>
+              <span class="glyph"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><i></i></span>
+            </button>
+            <div class="rec-copy">
+              <div class="t" id="rec-t">Tap the mic and read this out loud</div>
+              <div class="read" id="read-line"></div>
+              <div class="links"><button class="link new" id="new-read">Another line</button><button class="link" id="upload-btn">Use an audio file</button></div>
+              <input type="file" id="file" accept="audio/*" hidden>
+            </div>
+          </div>
+          <div class="refcard" id="refcard" hidden>
+            <div class="row"><button class="play" id="ref-play" aria-label="Play recording"></button><canvas id="ref-wave"></canvas><span class="time" id="ref-len"></span></div>
+            <textarea id="ref-text" class="field" aria-label="What was said in the recording"></textarea>
+            <div class="save"><input id="ref-name" class="field" placeholder="Name this voice" maxlength="40"><button class="btn ghost" id="ref-save">Add to cast</button></div>
+          </div>
+        </div>
+
+        <div class="block" data-pane="voice" hidden>
+          <div class="label">The voice</div>
+          <div class="cast" id="cast"></div>
+          <div class="castnote" id="castnote">Voices you keep from Describe and Clone show up here.</div>
+        </div>
+
+        <!-- the words -->
+        <div class="block">
+          <div class="label">What should they say? <span class="aside" id="count"></span></div>
+          <textarea id="line" class="field" maxlength="1200" aria-label="What should they say"></textarea>
+          <div class="chips" id="tags"></div>
+        </div>
+
+        <!-- the mood -->
+        <div class="block" id="mood-block">
+          <div class="label">The mood</div>
+          <div class="chips" id="emotions"></div>
+          <div class="mood">
+            <div class="pick">Speed <div class="seg" id="speed"><button data-v="slow">🐢 Slow</button><button data-v="" class="on">Normal</button><button data-v="fast">🐇 Fast</button></div></div>
+            <div class="pick">Pitch <div class="seg" id="pitch"><button data-v="low">Low</button><button data-v="" class="on">Normal</button><button data-v="high">High</button></div></div>
+            <div class="pick">
+              <select id="lang" class="field" aria-label="Language">
+                <option value="en">English</option><option value="es">Español</option><option value="fr">Français</option>
+                <option value="de">Deutsch</option><option value="ja">日本語</option><option value="ko">한국어</option>
+              </select></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gobar">
+        <div class="golo"><button id="go"><span>✨</span><span id="go-label">Bring it to life</span><kbd>⌘↵</kbd></button></div>
+      </div>
+    </section>
+
+    <section id="takes-col" aria-label="Takes">
+      <div class="takes-head"><h2>Takes</h2><span id="takes-n"></span></div>
+      <div id="takes" class="scrolly">
+        <div class="empty" id="empty">
+          <div class="orb big" style="--h:240"></div>
+          <h1>Make a <em>voice.</em></h1>
+          <p>Describe one, clone one, or pick from the cast. Then make it say anything. Made on-device, nothing sent anywhere.</p>
+          <ol><li>✨ Pick an idea</li><li>✍️ Give it a line</li><li>🎭 Set the mood</li></ol>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="toast" class="glass" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const API = "/studio/api";
+const TOUCH = matchMedia("(pointer: coarse)").matches;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("studio." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("studio." + k, JSON.stringify(v)); } catch {} },
+};
+
+// ---- Content ---------------------------------------------------------------
+const IDEAS = [
+  { e: "📻", n: "Storyteller", h: 30, d: "A deep, gravelly, older male voice, slow and warm, like a late-night storyteller.",
+    l: "Pull up a chair. The fire is warm, the night is long, and I have a story you won't believe." },
+  { e: "🏴‍☠️", n: "Pirate captain", h: 15, d: "A tired, raspy old pirate captain who has had a very long day at sea.",
+    l: "Arr. Forty years I've sailed these waters, and I still can't remember where I left my glasses." },
+  { e: "📺", n: "News anchor", h: 205, d: "A cheerful young British woman, a bright and fast-paced morning news anchor.",
+    l: "Good morning! In today's top story, a little box called a Spark has learned to talk, and frankly, it won't stop." },
+  { e: "🧘", n: "Meditation guide", h: 160, d: "A calm, soft, whispery female voice, a gentle meditation guide.",
+    l: "Breathe in slowly. Let your shoulders drop. Notice the quiet hum of the room around you." },
+  { e: "🏟️", n: "Sports commentator", h: 50, d: "An over-excited male sports commentator, loud, fast and completely out of breath.",
+    l: "He shoots, he scores! Unbelievable! Ladies and gentlemen, I have never seen anything like it!" },
+  { e: "🎬", n: "Trailer voice", h: 0, d: "A dramatic, booming, very deep movie trailer narrator.",
+    l: "In a world where every computer could talk, one little box dared to whisper." },
+  { e: "🤖", n: "Robot butler", h: 190, d: "A polite, precise, slightly robotic British butler.",
+    l: "Good evening. I have tidied your desktop, alphabetized your snacks, and quietly judged your browser history." },
+  { e: "👵", n: "Grandma", h: 330, d: "A sweet, slightly shaky elderly grandmother with a mischievous streak.",
+    l: "Oh sweetheart, I made cookies. Don't tell your mother, but I put extra chocolate in them." },
+  { e: "🕵️", n: "Noir detective", h: 250, d: "A world-weary nineteen-forties film noir detective, low and smoky.",
+    l: "The rain hadn't stopped in three days. Neither had the trouble. And then she walked in." },
+];
+const SURPRISE = {
+  who: ["surfer dude", "royal herald", "nervous game show contestant", "wise old wizard", "sleepy cat who learned to talk",
+        "overly dramatic theater actor", "cowboy at a campfire", "cheerful flight attendant", "villain in a cartoon",
+        "kindergarten teacher", "motivational gym coach", "alien tourist visiting Earth"],
+  how: ["very enthusiastic", "deeply suspicious", "extremely sleepy", "slightly grumpy", "wildly over-confident",
+        "whispering and secretive", "warm and gentle", "breathless and excited", "dry and sarcastic"],
+  line: ["I have an announcement. Someone ate my sandwich, and I will find out who.",
+         "Welcome, traveler! Please keep your hands inside the vehicle at all times.",
+         "Listen closely, because I'm only going to say this once. Probably twice.",
+         "Today is going to be a great day. I can feel it in my bones. And my snacks.",
+         "Okay, nobody panic. But the coffee machine is officially out of coffee."],
+};
+const READS = [
+  "I'm recording a few seconds of my voice, so this little computer can learn exactly how I sound.",
+  "The quick brown fox jumped over the lazy dog, and then it took a long nap in the afternoon sun.",
+  "Pizza is my favorite food in the whole world, especially when somebody else is paying for it.",
+  "Every morning I make a cup of coffee, look out the window, and pretend I'm a morning person.",
+];
+const TAGS = [["😂", "Laugh", "[Laughter]"], ["😮‍💨", "Sigh", "[Sigh]"], ["🫁", "Breath", "[Breathing]"], ["🤧", "Cough", "[Cough]"],
+              ["🤔", "Uhm", "[Uhm]"], ["😲", "Oh!", "[Surprise-oh]"], ["🤨", "Huh?", "[Question-huh]"]];
+const EMOTIONS = [["", "✨", "Natural"], ["happy", "😊", "Happy"], ["sad", "😢", "Sad"], ["angry", "😠", "Angry"],
+                  ["scared", "😱", "Scared"], ["surprised", "😲", "Surprised"], ["disgusted", "🤢", "Ew"]];
+const LANG_LINES = {
+  en: null,
+  es: "¡Hola! Esta voz se creó en casa, sin internet y sin nube.",
+  fr: "Bonjour ! Cette voix a été créée à la maison, sans internet.",
+  de: "Hallo! Diese Stimme wurde zu Hause erstellt, ganz ohne Internet.",
+  ja: "こんにちは！この声は、インターネットを使わずに家で作られました。",
+  ko: "안녕하세요! 이 목소리는 인터넷 없이 집에서 만들어졌어요.",
+};
+const BUILTIN_HUE = { US_James: 215, US_Stella: 320, US_Emma: 170, UK_George: 265, UK_Charlotte: 20 };
+
+// ---- State -----------------------------------------------------------------
+let mode = store.get("mode", "describe");
+let emotion = "", speed = "", pitch = "", idea = null, autoLine = true;
+let castSel = store.get("voice", "US_James"), cast = { builtin: [], saved: [] };
+let ref = null;                  // { ref, seconds, blob }
+let busy = false;
+const desc = $("desc"), line = $("line");
+
+// ---- Small helpers ---------------------------------------------------------
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hueOf = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.codePointAt(0)) % 360; return h; };
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg>';
+const PAUSE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1.2"/><rect x="14" y="4" width="4" height="16" rx="1.2"/></svg>';
+let toastT;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 3200);
+}
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    let msg = `Something went wrong (${r.status}).`;
+    try { const j = await r.json(); if (j.detail) msg = typeof j.detail === "string" ? j.detail : msg; } catch {}
+    throw new Error(msg);
+  }
+  return r;
+}
+
+// ---- What this speech model can do ---------------------------------------------
+// A model without cloning or voice design only offers its built-in cast; moods and languages likewise.
+function applyCaps(caps) {
+  if (!caps) return;
+  const can = { describe: caps.describe, clone: caps.clone, voice: true };
+  document.querySelectorAll(".modes button").forEach((b) => (b.hidden = !can[b.dataset.mode]));
+  $("mood-block").querySelector("#emotions").hidden = !caps.mood;
+  document.querySelectorAll("#mood-block .pick").forEach((p, n) => (p.hidden = n < 2 && !caps.mood));
+  $("lang").querySelectorAll("option").forEach((o) => (o.hidden = !caps.languages.includes(o.value)));
+  $("tags").hidden = !caps.mood;            // [Laughter], [Sigh]… are Ming's own sound tags
+  $("castnote").hidden = !caps.clone && !caps.describe;
+  $("mood-block").hidden = !caps.mood && caps.languages.length < 2;
+  if (!can[mode]) setMode("voice");
+}
+
+// ---- Modes -----------------------------------------------------------------
+function setMode(m) {
+  mode = m; store.set("mode", m);
+  document.querySelectorAll(".modes button").forEach((b) => b.classList.toggle("on", b.dataset.mode === m));
+  document.querySelectorAll("[data-pane]").forEach((p) => (p.hidden = p.dataset.pane !== m));
+  if (m === "voice") renderCast();
+}
+document.querySelectorAll(".modes button").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
+
+// ---- Describe --------------------------------------------------------------
+let typer;
+function typeInto(el, text, ms = 14) {          // a quick typewriter, so picking an idea feels alive
+  clearInterval(typer); el.value = ""; let i = 0;
+  typer = setInterval(() => { el.value = text.slice(0, ++i); autosize(el); if (i >= text.length) { clearInterval(typer); saveDraft(); } }, ms);
+}
+function useIdea(it, chip) {
+  idea = it;
+  document.querySelectorAll("#ideas .chip").forEach((c) => c.classList.toggle("on", c === chip));
+  typeInto(desc, it.d);
+  if (autoLine || !line.value.trim()) { setLine(it.l); }
+}
+function setLine(text) { line.value = text; autoLine = true; count(); saveDraft(); autosize(line); }
+// On a phone the boxes grow with their text; on a computer they share the panel's spare height.
+const STACKED = matchMedia("(max-width: 1100px)");
+function autosize(el) {
+  el.style.height = "";
+  if (STACKED.matches) el.style.height = `${Math.max(el.offsetHeight, el.scrollHeight + 2)}px`;
+}
+for (const el of [desc, line]) el.addEventListener("input", () => autosize(el));
+STACKED.addEventListener("change", () => { autosize(desc); autosize(line); });
+function renderIdeas() {
+  const box = $("ideas");
+  for (const it of IDEAS) {
+    const c = document.createElement("button");
+    c.className = "chip"; c.textContent = `${it.e} ${it.n}`;
+    c.onclick = () => useIdea(it, c);
+    box.append(c);
+  }
+  const dice = document.createElement("button");
+  dice.className = "chip dice"; dice.textContent = "🎲 Surprise me";
+  dice.onclick = () => {
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const who = pick(SURPRISE.who), how = pick(SURPRISE.how);
+    useIdea({ e: "🎲", n: who.replace(/^\w/, (c) => c.toUpperCase()), h: Math.floor(Math.random() * 360),
+              d: `A ${how} ${who}.`, l: pick(SURPRISE.line) }, null);
+    dice.animate([{ transform: "rotate(0)" }, { transform: "rotate(360deg)" }], { duration: 500, easing: "ease-out" });
+  };
+  box.append(dice);
+}
+// rotating placeholder: a hint of what's possible while the box is empty
+const PLACEHOLDERS = ["A tired pirate captain who's had a very long day…", "A calm, whispery meditation guide…",
+                      "An over-excited sports commentator…", "A sweet grandma with a mischievous streak…"];
+let ph = 0;
+desc.placeholder = PLACEHOLDERS[0];
+setInterval(() => { if (!desc.value) desc.placeholder = PLACEHOLDERS[++ph % PLACEHOLDERS.length]; }, 3500);
+desc.addEventListener("input", () => { idea = null; document.querySelectorAll("#ideas .chip").forEach((c) => c.classList.remove("on")); saveDraft(); });
+
+// ---- Words -----------------------------------------------------------------
+function count() {
+  const w = line.value.trim() ? line.value.trim().split(/\s+/).length : 0;
+  $("count").innerHTML = w ? `${w} word${w === 1 ? "" : "s"}<span class="est"> · about ${Math.max(1, Math.round(w / 2.6))} s</span>` : "";
+}
+line.addEventListener("input", () => { autoLine = false; count(); saveDraft(); });
+for (const [e, n, tag] of TAGS) {
+  const c = document.createElement("button");
+  c.className = "chip small"; c.textContent = `${e} ${n}`; c.title = `Insert ${tag}`;
+  c.onclick = () => {                             // drop the tag in at the cursor
+    const a = line.selectionStart ?? line.value.length, b = line.selectionEnd ?? a, v = line.value;
+    const ins = `${a && v[a - 1] !== " " ? " " : ""}${tag} `;
+    line.value = v.slice(0, a) + ins + v.slice(b); autoLine = false;
+    line.focus(); line.selectionStart = line.selectionEnd = a + ins.length; count(); saveDraft();
+  };
+  $("tags").append(c);
+}
+$("lang").onchange = () => {
+  store.set("lang", $("lang").value);
+  const l = LANG_LINES[$("lang").value];
+  if (autoLine || !line.value.trim()) setLine(l || (idea ? idea.l : IDEAS[0].l));
+};
+
+// ---- Mood ------------------------------------------------------------------
+for (const [v, e, n] of EMOTIONS) {
+  const c = document.createElement("button");
+  c.className = "chip" + (v === "" ? " on" : ""); c.textContent = `${e} ${n}`;
+  c.onclick = () => { emotion = v; document.querySelectorAll("#emotions .chip").forEach((x) => x.classList.toggle("on", x === c)); };
+  $("emotions").append(c);
+}
+function segGroup(id, set) {
+  const btns = [...$(id).children];
+  btns.forEach((b) => (b.onclick = () => { set(b.dataset.v); btns.forEach((x) => x.classList.toggle("on", x === b)); }));
+}
+segGroup("speed", (v) => (speed = v));
+segGroup("pitch", (v) => (pitch = v));
+
+// ---- Cast ------------------------------------------------------------------
+async function loadCast() {
+  try { cast = await (await api("/voices")).json(); } catch { return; }
+  applyCaps(cast.caps);
+  if (mode === "voice") renderCast();
+}
+function castEntry(id) {
+  const b = cast.builtin.find((v) => v.id === id);
+  if (b) return { name: b.name, sub: b.tag, emoji: b.flag, hue: BUILTIN_HUE[b.id] ?? 220 };
+  const s = cast.saved.find((v) => v.id === id);
+  if (s) return { name: s.name, sub: s.kind === "designed" ? (s.description || "Designed voice") : "Cloned voice", emoji: s.emoji || (s.kind === "designed" ? "✨" : "🎙️"), hue: s.hue };
+  return null;
+}
+function renderCast() {
+  const box = $("cast"); box.innerHTML = "";
+  if (!castEntry(castSel)) castSel = "US_James";
+  const all = [...cast.saved.slice().reverse().map((v) => v.id), ...cast.builtin.map((v) => v.id)];
+  for (const id of all) {
+    const e = castEntry(id), saved = cast.saved.some((v) => v.id === id);
+    const c = document.createElement("button");
+    c.className = "vcard" + (id === castSel ? " on" : "");
+    c.innerHTML = `<div class="orb" style="--h:${e.hue}"><span>${esc(e.emoji)}</span></div>
+                   <div><div class="n">${esc(e.name)}</div><div class="d">${esc(e.sub)}</div></div>` +
+                  (saved ? `<span class="x" role="button" aria-label="Remove ${esc(e.name)}" title="Remove">×</span>` : "");
+    c.onclick = (ev) => {
+      if (ev.target.classList.contains("x")) { removeVoice(id, e.name); return; }
+      castSel = id; store.set("voice", id); renderCast();
+    };
+    box.append(c);
+  }
+  $("castnote").hidden = cast.saved.length > 0;
+}
+async function removeVoice(id, name) {
+  if (!confirm(`Remove “${name}” from your cast?`)) return;
+  try { await api(`/voices/${id}`, { method: "DELETE" }); } catch (e) { toast(e.message); return; }
+  if (castSel === id) castSel = "US_James";
+  await loadCast(); renderCast(); toast(`Removed ${name}`);
+}
+async function keepVoice(body) {
+  const v = await (await api("/voices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json();
+  await loadCast();
+  castSel = v.id; store.set("voice", v.id);
+  return v;
+}
+
+// ---- Clone: recording ------------------------------------------------------
+let actx, stream, recNode, chunks = [], recOn = false, recT0 = 0, recRaf;
+const REC_MAX = 12;
+function ctx() { return actx || (actx = new AudioContext()); }
+let readIdx = Math.floor(Math.random() * READS.length);
+function showRead() { $("read-line").textContent = READS[readIdx % READS.length]; }
+$("new-read").onclick = () => { readIdx++; showRead(); };
+showRead();
+$("rec").onclick = () => (recOn ? stopRec() : startRec());
+async function startRec() {
+  stopAll();
+  const c = ctx(); c.resume().catch(() => {});
+  if (navigator.audioSession) navigator.audioSession.type = "play-and-record";
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
+  } catch {
+    toast(TOUCH ? "Microphone is blocked: tap aA → Website Settings → Microphone." : "Allow the microphone in your browser's site settings.");
+    return;
+  }
+  const src = c.createMediaStreamSource(stream);
+  recNode = c.createScriptProcessor(4096, 1, 1); recNode._src = src; chunks = [];
+  let level = 0;
+  recNode.onaudioprocess = (e) => {
+    const x = e.inputBuffer.getChannelData(0); chunks.push(new Float32Array(x));
+    let s = 0; for (const v of x) s += v * v; level = Math.sqrt(s / x.length);
+  };
+  src.connect(recNode); recNode.connect(c.destination);
+  recOn = true; recT0 = performance.now();
+  $("rec").classList.add("live"); $("rec").setAttribute("aria-label", "Stop recording");
+  $("rec-t").textContent = "Recording… tap to stop";
+  const tick = () => {
+    const t = (performance.now() - recT0) / 1000;
+    $("ring").style.strokeDashoffset = 320 * (1 - Math.min(1, t / REC_MAX));
+    $("ball").style.transform = `scale(${1 + Math.min(.18, level * 2.2)})`;
+    $("rec-t").textContent = `Recording · ${t.toFixed(0)} s · tap to stop`;
+    if (t >= REC_MAX) { stopRec(); return; }
+    recRaf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+function releaseMic() {
+  stream?.getTracks().forEach((t) => t.stop()); stream = null;   // also stops iPhones playing through the earpiece
+  if (navigator.audioSession) navigator.audioSession.type = "playback";
+}
+async function stopRec() {
+  if (!recOn) return;
+  recOn = false; cancelAnimationFrame(recRaf);
+  recNode.onaudioprocess = null; recNode.disconnect(); recNode._src.disconnect();
+  releaseMic();
+  $("rec").classList.remove("live"); $("ball").style.transform = ""; $("ring").style.strokeDashoffset = 320;
+  const pcm = concat(chunks), sec = pcm.length / ctx().sampleRate;
+  if (sec < 2) { resetRecCopy("Too short · tap and read the whole line"); return; }
+  await sendReference(wavEncode(pcm, ctx().sampleRate));
+}
+function resetRecCopy(s) {
+  $("rec-t").textContent = s || (ref ? `Got it · ${ref.seconds.toFixed(1)} s · tap the mic to redo` : "Tap the mic and read this out loud");
+}
+$("upload-btn").onclick = () => $("file").click();
+$("file").onchange = async () => {
+  const f = $("file").files[0]; $("file").value = "";
+  if (!f) return;
+  try {                                           // decode here so any format the browser plays works
+    const buf = await ctx().decodeAudioData(await f.arrayBuffer());
+    const ch = buf.getChannelData(0);
+    await sendReference(wavEncode(ch.slice(0, Math.min(ch.length, buf.sampleRate * 20)), buf.sampleRate));
+  } catch { toast("That file isn't audio this browser can read."); }
+};
+async function sendReference(wav) {
+  $("rec-t").textContent = "Listening back… Ming is writing it down";
+  $("rec").disabled = true;
+  try {
+    const j = await (await api("/reference", { method: "POST", body: wav, headers: { "content-type": "audio/wav" } })).json();
+    const blob = await (await api(`/reference/${j.ref}`)).blob();
+    ref = { ref: j.ref, seconds: j.seconds, blob };
+    $("ref-text").value = j.transcript || READS[readIdx % READS.length];
+    $("ref-len").textContent = `${j.seconds.toFixed(1)} s`;
+    $("refcard").hidden = false;
+    refPlayer.load(blob);
+    $("recorder").classList.add("has-ref"); resetRecCopy();
+  } catch (e) { toast(e.message); resetRecCopy(); }
+  finally { $("rec").disabled = false; }
+}
+$("ref-save").onclick = async () => {
+  if (!ref) return;
+  const name = $("ref-name").value.trim() || "My voice";
+  try {
+    await keepVoice({ name, kind: "cloned", ref: ref.ref, ref_text: $("ref-text").value, emoji: "🎙️" });
+    $("ref-name").value = ""; toast(`${name} joined your cast 🎭`);
+  } catch (e) { toast(e.message); }
+};
+function concat(parts) {
+  const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+function wavEncode(x, rate) {
+  const buf = new ArrayBuffer(44 + x.length * 2), v = new DataView(buf);
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + x.length * 2, true); w(8, "WAVEfmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, "data"); v.setUint32(40, x.length * 2, true);
+  for (let i = 0; i < x.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x[i])) * 0x7fff, true);
+  return buf;
+}
+
+// ---- Players: an <audio> element plus a waveform drawn from the WAV's own samples ----
+const players = new Set();
+function stopAll(except) { for (const p of players) if (p !== except) p.pause(); }
+function peaksOf(ab, n = 120) {
+  const v = new DataView(ab); let o = 12, data = null, len = 0;
+  while (o + 8 <= v.byteLength) {                 // find the "data" chunk of a 16-bit PCM WAV
+    const id = String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3)), sz = v.getUint32(o + 4, true);
+    if (id === "data") { data = o + 8; len = Math.min(sz, v.byteLength - data) >> 1; break; }
+    o += 8 + sz + (sz & 1);
+  }
+  const out = new Float32Array(n);
+  if (data == null || !len) return out;
+  const per = Math.max(1, Math.floor(len / n));
+  for (let i = 0; i < n; i++) {
+    let s = 0; const a = i * per;
+    for (let j = 0; j < per && a + j < len; j += 4) { const x = v.getInt16(data + (a + j) * 2, true) / 32768; s += x * x; }
+    out[i] = Math.sqrt(s / (per / 4));
+  }
+  const m = Math.max(...out) || 1;
+  return out.map((x) => Math.pow(x / m, .7));
+}
+function makePlayer(canvas, btn, timeEl, hue, card) {
+  const el = new Audio(); el.preload = "auto";
+  let peaks = new Float32Array(0), raf;
+  const p = {
+    el,
+    async load(blob) {
+      el.src = URL.createObjectURL(blob);
+      peaks = peaksOf(await blob.arrayBuffer(), Math.max(40, Math.floor(canvas.clientWidth / 5)));
+      draw();
+    },
+    play() {
+      stopAll(p);
+      if (navigator.audioSession && !recOn) navigator.audioSession.type = "playback";
+      el.play().catch(() => {});
+    },
+    pause() { el.pause(); },
+  };
+  function draw() {
+    const dpr = devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w) return;
+    if (canvas.width !== w * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+    const g = canvas.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    const n = peaks.length, bw = w / n, prog = el.duration ? el.currentTime / el.duration : 0;
+    const grad = g.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, `hsl(${hue} 95% 66%)`); grad.addColorStop(.5, `hsl(${hue + 55} 95% 66%)`); grad.addColorStop(1, `hsl(${hue + 150} 90% 68%)`);
+    for (let i = 0; i < n; i++) {
+      const bh = Math.max(3, peaks[i] * (h - 6)), x = i * bw + bw * .2, y = (h - bh) / 2;
+      g.fillStyle = i / n < prog ? grad : "rgba(255,255,255,.2)";
+      g.beginPath(); g.roundRect ? g.roundRect(x, y, bw * .6, bh, bw * .3) : g.rect(x, y, bw * .6, bh); g.fill();
+    }
+    if (timeEl && el.duration) timeEl.textContent = fmt(el.paused && !el.currentTime ? el.duration : el.currentTime);
+  }
+  const orb = card?.querySelector(".orb");
+  function loop() {
+    draw();
+    if (orb && peaks.length && el.duration) {      // the avatar breathes with the take's own loudness
+      const k = peaks[Math.min(peaks.length - 1, Math.floor(el.currentTime / el.duration * peaks.length))] || 0;
+      orb.style.transform = `scale(${1 + k * .16})`;
+    }
+    raf = requestAnimationFrame(loop);
+  }
+  el.onplay = () => { btn.innerHTML = PAUSE; card?.classList.add("playing"); loop(); };
+  el.onpause = el.onended = () => {
+    btn.innerHTML = PLAY; card?.classList.remove("playing"); cancelAnimationFrame(raf);
+    if (orb) orb.style.transform = ""; draw();
+  };
+  btn.innerHTML = PLAY;
+  btn.onclick = () => (el.paused ? p.play() : p.pause());
+  canvas.onclick = (e) => {
+    if (!el.duration) return;
+    const r = canvas.getBoundingClientRect();
+    el.currentTime = (e.clientX - r.left) / r.width * el.duration; draw();
+    if (el.paused) p.play();
+  };
+  new ResizeObserver(() => draw()).observe(canvas);
+  players.add(p);
+  return p;
+}
+const refPlayer = makePlayer($("ref-wave"), $("ref-play"), null, 140, null);
+
+// ---- Generate --------------------------------------------------------------
+function request() {
+  const base = { text: line.value.trim(), emotion, speed, pitch, lang: $("lang").value };
+  if (mode === "describe") {
+    if (!desc.value.trim()) throw new Error("Describe a voice first, or tap one of the ideas.");
+    const d = desc.value.trim();
+    const n = idea && idea.d === d ? idea : null;
+    return { body: { ...base, mode: "describe", description: d },
+             who: { name: n ? n.n : d.split(/\s+/).slice(1, 5).join(" ").replace(/[,.]$/, ""), sub: d, emoji: n ? n.e : "✨",
+                    hue: n ? n.h : hueOf(d), kind: "designed", description: d } };
+  }
+  if (mode === "clone") {
+    if (!ref) throw new Error("Record a few seconds first (or use an audio file).");
+    if (!$("ref-text").value.trim()) throw new Error("Add what was said in the recording.");
+    return { body: { ...base, mode: "clone", ref: ref.ref, ref_text: $("ref-text").value.trim() },
+             who: { name: $("ref-name").value.trim() || "Your clone", sub: "Cloned from your recording", emoji: "🎙️", hue: 140 } };
+  }
+  const e = castEntry(castSel);
+  return { body: { ...base, mode: "voice", voice: castSel }, who: { name: e.name, sub: e.sub, emoji: e.emoji, hue: e.hue } };
+}
+async function go(req) {
+  if (busy) return;
+  try { req = req || request(); } catch (e) { toast(e.message); return; }
+  if (!req.body.text) { toast("Give them something to say."); line.focus(); return; }
+  busy = true; $("go").disabled = true; $("go").classList.add("busy"); $("go-label").textContent = "Performing…";
+  $("empty")?.remove();
+  const card = takeCard(req, true);
+  const words = req.body.text.split(/\s+/).length, est = Math.max(2, Math.round(words / 2.6 * .8 + 1));
+  const t0 = performance.now();
+  const timer = setInterval(() => {
+    const s = (performance.now() - t0) / 1000;
+    card.querySelector(".stat").textContent = `${s.toFixed(1)} s · usually ~${est} s`;
+  }, 100);
+  try {
+    const r = await api("/speak", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req.body) });
+    const blob = await r.blob();
+    clearInterval(timer);
+    fillTake(card, req, blob, { take: r.headers.get("x-take"), gen: +r.headers.get("x-gen-ms"), audio: +r.headers.get("x-audio-ms") });
+  } catch (e) {
+    clearInterval(timer);
+    card.classList.remove("pending"); card.classList.add("err");
+    card.querySelector(".said").textContent = e.message || "The studio didn't answer. Is everything running?";
+    card.querySelector(".player").remove(); card.querySelector(".stat").textContent = "";
+    const again = document.createElement("button"); again.className = "act"; again.textContent = "↻ Try again";
+    again.onclick = () => { card.remove(); go(req); };
+    card.querySelector(".acts").prepend(again);
+  } finally {
+    busy = false; $("go").disabled = false; $("go").classList.remove("busy"); $("go-label").textContent = "Bring it to life";
+    $("takes-n").textContent = `${$("takes").querySelectorAll(".take:not(.err)").length || ""}`;
+  }
+}
+$("go").onclick = () => go();
+addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); go(); } });
+
+function takeCard(req, pending) {
+  const w = req.who, card = document.createElement("article");
+  card.className = "take glass" + (pending ? " pending" : "");
+  card.style.setProperty("--h", w.hue);
+  const moodBits = [EMOTIONS.find((x) => x[0] === req.body.emotion && x[0])?.[2], req.body.speed && `${req.body.speed} pace`,
+                    req.body.pitch && `${req.body.pitch} pitch`, req.body.lang !== "en" && $("lang").querySelector(`[value=${req.body.lang}]`).textContent].filter(Boolean);
+  card.innerHTML = `
+    <div class="top"><div class="orb" style="--h:${w.hue}"><span>${esc(w.emoji)}</span></div>
+      <div class="who"><b>${esc(w.name)}</b><small>${esc(moodBits.length ? moodBits.join(" · ") : w.sub)}</small></div></div>
+    <p class="said">${esc(req.body.text)}</p>
+    <div class="player">${pending ? '<div class="shimmer"></div>' : '<button class="play" aria-label="Play"></button><canvas></canvas><span class="time"></span>'}</div>
+    <div class="acts"><span class="stat"></span></div>`;
+  $("takes").prepend(card);
+  if (innerWidth <= 1100) card.scrollIntoView({ behavior: "smooth", block: "center" });
+  else $("takes").scrollTo({ top: 0, behavior: "smooth" });
+  return card;
+}
+function fillTake(card, req, blob, info) {
+  card.classList.remove("pending");
+  card.querySelector(".player").innerHTML = '<button class="play" aria-label="Play"></button><canvas></canvas><span class="time"></span>';
+  const p = makePlayer(card.querySelector("canvas"), card.querySelector(".play"), card.querySelector(".time"), req.who.hue, card);
+  p.load(blob).then(() => p.play());
+  const acts = card.querySelector(".acts"), stat = acts.querySelector(".stat");
+  stat.textContent = `made in ${(info.gen / 1000).toFixed(1)} s · ${(info.audio / 1000).toFixed(1)} s long`;
+  const name = (req.who.name || "voice").replace(/[^\w-]+/g, "-").toLowerCase();
+  const dl = Object.assign(document.createElement("a"), { className: "act", href: p.el.src, download: `spark-voice-${name}.wav`, textContent: "⬇ Save" });
+  const again = Object.assign(document.createElement("button"), { className: "act", textContent: "↻ Another take" });
+  again.onclick = () => go(req);
+  acts.prepend(again); acts.prepend(dl);
+  if (req.who.kind === "designed" && info.take) {
+    const keep = Object.assign(document.createElement("button"), { className: "act keep", textContent: "＋ Keep this voice" });
+    keep.onclick = () => {
+      if (card.querySelector(".keeprow")) return;
+      const row = document.createElement("div"); row.className = "keeprow";
+      row.innerHTML = `<input class="field" maxlength="40" value="${esc(req.who.name)}" aria-label="Voice name"><button class="btn">Keep</button>`;
+      acts.after(row);
+      const inp = row.querySelector("input"); inp.focus(); inp.select();
+      const save = async () => {
+        try {
+          const v = await keepVoice({ name: inp.value.trim() || req.who.name, kind: "designed", take: info.take,
+                                      description: req.who.description, emoji: req.who.emoji });
+          row.remove(); keep.className = "act kept"; keep.textContent = "✓ In your cast"; keep.onclick = () => setMode("voice");
+          toast(`${v.name} joined your cast 🎭  It will sound the same every time.`);
+        } catch (e) { toast(e.message); }
+      };
+      row.querySelector("button").onclick = save;
+      inp.onkeydown = (e) => { if (e.key === "Enter") save(); };
+    };
+    acts.prepend(keep);
+  }
+}
+
+// ---- Draft & health --------------------------------------------------------
+let BADGE = "On-device";
+fetch("/api/config").then((r) => r.json()).then((c) => { BADGE = c.badge; health(); }).catch(() => {});
+function saveDraft() { store.set("draft", { desc: desc.value, line: line.value, autoLine }); }
+async function health() {
+  const h = $("health");
+  try {
+    const j = await (await api("/health")).json();
+    h.className = j.tts && j.asr ? "ok" : "bad";
+    $("health-text").textContent = !j.tts ? "Voice engine offline" : j.asr ? BADGE : "Recording offline";
+  } catch { h.className = "bad"; $("health-text").textContent = "Studio offline"; }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { health(); actx?.resume().catch(() => {}); } });
+
+renderIdeas();
+const draft = store.get("draft", null);
+$("lang").value = store.get("lang", "en");
+if (draft && draft.desc) { desc.value = draft.desc; line.value = draft.line || IDEAS[0].l; autoLine = !!draft.autoLine; count(); }
+else { useIdea(IDEAS[0], $("ideas").firstChild); }
+setMode(mode);
+autosize(desc); autosize(line);
+loadCast(); health(); setInterval(health, 20000);
+</script>
+</body>
+</html>

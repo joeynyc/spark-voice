@@ -1,0 +1,114 @@
+# Spark Voice
+#
+#   One Spark:   docker compose --profile app --profile models up -d
+#   Two Sparks:  on Spark 2: docker compose --profile models up -d
+#                on Spark 1: docker compose --profile app up -d       (addresses in .env, see docs/two-sparks.md)
+#
+# profile "app":    the web app, Ming ASR, SearXNG       (+ the stats agent)
+# profile "models": Nemotron 3.5 Lightning, Ming TTS     (+ the stats agent)
+# Everything uses host networking, so the services find each other at the addresses in .env.
+# The model servers and stats listen on BIND (127.0.0.1 unless you set it): only the app is on your network.
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices: [{driver: nvidia, count: all, capabilities: [gpu]}]
+
+services:
+  app:
+    profiles: [app]
+    build: .
+    image: spark-voice-app
+    network_mode: host
+    user: "${UID:-1000}:${GID:-1000}"
+    env_file: .env
+    volumes:
+      - ./config.yaml:/srv/config.yaml:ro
+      - ./voices:/srv/voices:ro
+      - ./data:/srv/data
+    restart: unless-stopped
+
+  asr:
+    profiles: [app]
+    <<: *gpu
+    build: {context: engines, dockerfile: ming-asr/Dockerfile}
+    image: spark-voice-ming-asr
+    network_mode: host
+    environment:
+      PORT: ${ASR_PORT:-7797}
+      HOST: ${BIND:-127.0.0.1}
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes: [models:/models]
+    restart: unless-stopped
+
+  search:
+    profiles: [app]
+    image: searxng/searxng:2026.10.2-19ffbcd30
+    network_mode: host
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?run scripts/setup.sh first}
+      SEARXNG_BIND_ADDRESS: 127.0.0.1
+      SEARXNG_PORT: ${SEARCH_PORT:-7795}
+      GRANIAN_HOST: 127.0.0.1
+      GRANIAN_PORT: ${SEARCH_PORT:-7795}
+    volumes: [./engines/searxng/settings.yml:/etc/searxng/settings.yml:ro]
+    restart: unless-stopped
+
+  tts:
+    profiles: [models]
+    <<: *gpu
+    build: {context: engines, dockerfile: ming-tts/Dockerfile}
+    image: spark-voice-ming-tts
+    network_mode: host
+    environment:
+      PORT: ${TTS_PORT:-7798}
+      HOST: ${BIND:-127.0.0.1}
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes: [hf-cache:/root/.cache/huggingface]
+    restart: unless-stopped
+
+  llm:
+    profiles: [models]
+    <<: *gpu
+    image: vllm/vllm-openai:v0.31.0
+    network_mode: host
+    ipc: host
+    ulimits: {memlock: -1}
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      TORCH_CUDA_ARCH_LIST: 12.1a
+      PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+      NVIDIA_FORWARD_COMPAT: "1"
+      NVIDIA_DISABLE_REQUIRE: "1"
+    volumes: [hf-cache:/root/.cache/huggingface]
+    # About 36 GB (0.30 of 128 GB): leaves room for the voices and everything else on the same Spark.
+    command: >
+      nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+      --revision bee7596271d1495f6992ae224aefde4410e816b8
+      --code-revision bee7596271d1495f6992ae224aefde4410e816b8
+      --served-model-name nemotron-3.5-lightning-30b
+      --host ${BIND:-127.0.0.1} --port ${LLM_PORT:-8000}
+      --gpu-memory-utilization ${LLM_GPU_SHARE:-0.30}
+      --max-model-len 32768 --max-num-seqs 4
+      --moe-backend marlin --kv-cache-dtype fp8 --enable-prefix-caching
+      --mamba-backend flashinfer --mamba-cache-mode align
+      --reasoning-parser nemotron_v3 --trust-remote-code
+      --speculative-config '{"model":"nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark","revision":"6d127b50ecd98562cea85d0087680b7d86091fb0","num_speculative_tokens":3}'
+    restart: unless-stopped
+
+  stats:
+    profiles: [app, models]
+    <<: *gpu
+    build: engines/stats
+    image: spark-voice-stats
+    network_mode: host
+    pid: host
+    environment:
+      STATS_PORT: ${STATS_PORT:-7796}
+      STATS_BIND: ${BIND:-127.0.0.1}
+    restart: unless-stopped
+
+volumes:
+  hf-cache:
+  models:
